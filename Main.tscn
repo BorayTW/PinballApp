@@ -2,7 +2,13 @@
 
 [ext_resource type="Script" uid="uid://dimbldiu5e0jp" path="res://Main.gd" id="1_main"]
 
-[node name="Main" type="Node2D"]
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("1_main")
 
 [node name="Board" type="StaticBody2D" parent="."]
@@ -14,49 +20,162 @@ script = ExtResource("1_main")
 [node name="BallSpawner" type="Marker2D" parent="."]
 position = Vector2(640, 70)
 
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
+[node name="UI" type="CanvasLayer" parent="."]
 
-[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer"]
+[node name="TopLeftVBox" type="VBoxContainer" parent="UI"]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 120.0
+offset_bottom = 110.0
+theme_override_constants/separation = 10
+
+[node name="RestartButton" type="Button" parent="UI/TopLeftVBox"]
+custom_minimum_size = Vector2(0, 35)
+layout_mode = 2
+text = "重新開始"
+
+[node name="QuitButton" type="Button" parent="UI/TopLeftVBox"]
+custom_minimum_size = Vector2(0, 35)
+layout_mode = 2
+text = "退出遊戲"
+
+[node name="TopRightVBox" type="VBoxContainer" parent="UI"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -120.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = 110.0
+grow_horizontal = 0
+theme_override_constants/separation = 10
+
+[node name="DisplaySettingsButton" type="Button" parent="UI/TopRightVBox"]
+custom_minimum_size = Vector2(0, 35)
+layout_mode = 2
+text = "設定"
+
+[node name="SettingsButton" type="Button" parent="UI/TopRightVBox"]
+custom_minimum_size = Vector2(0, 35)
+layout_mode = 2
+text = "獎品名單"
+
+[node name="VersionLabel" type="Label" parent="UI"]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -40.0
+offset_right = 150.0
+offset_bottom = -10.0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
+theme_override_font_sizes/font_size = 14
+text = "v0.1.1"
+vertical_alignment = 2
+
+[node name="BottomVBox" type="VBoxContainer" parent="UI"]
 anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -300.0
-offset_top = -120.0
-offset_right = 300.0
-offset_bottom = -20.0
+offset_left = -250.0
+offset_top = -110.0
+offset_right = 250.0
+offset_bottom = -15.0
 grow_horizontal = 2
 grow_vertical = 0
 alignment = 1
 
-[node name="ResultLabel" type="Label" parent="CanvasLayer/VBoxContainer"]
+[node name="ResultLabel" type="Label" parent="UI/BottomVBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 18
 text = "請點擊『發射彈珠』開始抽獎！"
 horizontal_alignment = 1
-vertical_alignment = 1
 
-[node name="ControlSpacer" type="Control" parent="CanvasLayer/VBoxContainer"]
-custom_minimum_size = Vector2(0, 10)
+[node name="ControlSpacer" type="Control" parent="UI/BottomVBox"]
+custom_minimum_size = Vector2(0, 5)
 layout_mode = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="CanvasLayer/VBoxContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="UI/BottomVBox"]
 layout_mode = 2
 alignment = 1
 
-[node name="LaunchButton" type="Button" parent="CanvasLayer/VBoxContainer/HBoxContainer"]
-custom_minimum_size = Vector2(200, 50)
+[node name="LaunchButton" type="Button" parent="UI/BottomVBox/HBoxContainer"]
+custom_minimum_size = Vector2(180, 45)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 16
 text = "發射彈珠 (抽獎)"
 
-[node name="ControlSpacer" type="Control" parent="CanvasLayer/VBoxContainer/HBoxContainer"]
-custom_minimum_size = Vector2(20, 0)
+[node name="Spacer" type="Control" parent="UI/BottomVBox/HBoxContainer"]
+custom_minimum_size = Vector2(15, 0)
 layout_mode = 2
 
-[node name="ClearButton" type="Button" parent="CanvasLayer/VBoxContainer/HBoxContainer"]
-custom_minimum_size = Vector2(140, 50)
+[node name="ClearButton" type="Button" parent="UI/BottomVBox/HBoxContainer"]
+custom_minimum_size = Vector2(120, 45)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 16
 text = "清空彈珠"
+
+[node name="DisplayPanel" type="PanelContainer" parent="UI"]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = -100.0
+offset_right = 150.0
+offset_bottom = 100.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="UI/DisplayPanel"]
+layout_mode = 2
+theme_override_constants/separation = 15
+alignment = 1
+
+[node name="Title" type="Label" parent="UI/DisplayPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "遊戲設定"
+horizontal_alignment = 1
+
+[node name="CloseDisplayButton" type="Button" parent="UI/DisplayPanel/VBox"]
+custom_minimum_size = Vector2(100, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "關閉"
+
+[node name="SettingsPanel" type="PanelContainer" parent="UI"]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = -100.0
+offset_right = 150.0
+offset_bottom = 100.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="UI/SettingsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 15
+alignment = 1
+
+[node name="Title" type="Label" parent="UI/SettingsPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "獎品名單設定"
+horizontal_alignment = 1
+
+[node name="CloseSettingsButton" type="Button" parent="UI/SettingsPanel/VBox"]
+custom_minimum_size = Vector2(100, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "關閉"
