@@ -9,10 +9,10 @@ border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
 border_color = Color(0.35, 0.38, 0.45, 1)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
 expand_margin_left = 15.0
 expand_margin_top = 15.0
 expand_margin_right = 15.0
@@ -122,7 +122,7 @@ alignment = 1
 custom_minimum_size = Vector2(180, 45)
 layout_mode = 2
 theme_override_font_sizes/font_size = 16
-text = "發射彈珠 (抽獎)"
+text = "發射彈珠 (10)"
 
 [node name="Spacer" type="Control" parent="UI/BottomVBox/HBoxContainer"]
 custom_minimum_size = Vector2(15, 0)
@@ -163,9 +163,10 @@ horizontal_alignment = 1
 layout_mode = 2
 text = "背景主題顏色"
 
-[node name="BGColorPicker" type="ColorPickerButton" parent="UI/DisplayPanel/VBox"]
-custom_minimum_size = Vector2(0, 35)
+[node name="BGColorHBox" type="HBoxContainer" parent="UI/DisplayPanel/VBox"]
 layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
 
 [node name="UIFontLabel" type="Label" parent="UI/DisplayPanel/VBox"]
 layout_mode = 2
@@ -196,9 +197,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -310.0
-offset_top = -180.0
+offset_top = -200.0
 offset_right = 310.0
-offset_bottom = 180.0
+offset_bottom = 200.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
@@ -278,7 +279,7 @@ layout_mode = 2
 text = "新增"
 
 [node name="ItemList" type="ItemList" parent="UI/SettingsPanel/VBox/ContentHBox/RightVBox"]
-custom_minimum_size = Vector2(280, 140)
+custom_minimum_size = Vector2(280, 120)
 layout_mode = 2
 size_flags_vertical = 3
 
@@ -296,8 +297,81 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "隨機打亂"
 
+[node name="BallCountHBox" type="HBoxContainer" parent="UI/SettingsPanel/VBox/ContentHBox/RightVBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="BallCountLabel" type="Label" parent="UI/SettingsPanel/VBox/ContentHBox/RightVBox/BallCountHBox"]
+layout_mode = 2
+text = "彈珠數量:"
+
+[node name="MinusButton" type="Button" parent="UI/SettingsPanel/VBox/ContentHBox/RightVBox/BallCountHBox"]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+text = "-"
+
+[node name="BallCountInput" type="LineEdit" parent="UI/SettingsPanel/VBox/ContentHBox/RightVBox/BallCountHBox"]
+custom_minimum_size = Vector2(60, 30)
+layout_mode = 2
+text = "10"
+alignment = 1
+
+[node name="PlusButton" type="Button" parent="UI/SettingsPanel/VBox/ContentHBox/RightVBox/BallCountHBox"]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+text = "+"
+
 [node name="CloseSettingsButton" type="Button" parent="UI/SettingsPanel/VBox"]
 custom_minimum_size = Vector2(120, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 text = "完成並關閉"
+
+[node name="DeleteConfirmPanel" type="PanelContainer" parent="UI"]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -160.0
+offset_top = -80.0
+offset_right = 160.0
+offset_bottom = 80.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="VBox" type="VBoxContainer" parent="UI/DeleteConfirmPanel"]
+layout_mode = 2
+theme_override_constants/separation = 15
+alignment = 1
+
+[node name="Title" type="Label" parent="UI/DeleteConfirmPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "確認刪除預設名單"
+horizontal_alignment = 1
+
+[node name="ConfirmText" type="Label" parent="UI/DeleteConfirmPanel/VBox"]
+custom_minimum_size = Vector2(260, 0)
+layout_mode = 2
+text = "確定要刪除預設名單嗎？"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="HBox" type="HBoxContainer" parent="UI/DeleteConfirmPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="DeleteConfirmOkButton" type="Button" parent="UI/DeleteConfirmPanel/VBox/HBox"]
+custom_minimum_size = Vector2(100, 40)
+layout_mode = 2
+text = "確定刪除"
+
+[node name="DeleteConfirmCancelButton" type="Button" parent="UI/DeleteConfirmPanel/VBox/HBox"]
+custom_minimum_size = Vector2(100, 40)
+layout_mode = 2
+text = "取消"
