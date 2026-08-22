@@ -16,7 +16,8 @@ extends Control
 	Color("#382424"), # 典雅酒紅
 	Color("#404047")  # 質感簡約灰
 ]
-@export var board_bg_color: Color = Color("333842")     # 彈珠台內部背景色
+# 彈珠台內部背景自動加深/變亮係數 (0.25 表示比全域背景加深 25%)
+@export var board_bg_darken_factor: float = -0.1
 @export var board_border_color: Color = Color("cccccc") # 彈珠台邊框顏色
 @export var peg_color: Color = Color("ffd700")          # 釘子填滿顏色
 @export var peg_outline_color: Color = Color("8b6508")  # 釘子描邊顏色
@@ -55,7 +56,7 @@ extends Control
 @export var ball_mass: float = 1.0          # 彈珠質量
 @export var ball_gravity_scale: float = 1.2 # 重力倍率
 @export var spawn_x_offset: float = 15.0    # 發射初始位置隨機 X 軸偏移範圍
-@export var launch_cooldown: float = 0.2    # 最短發射間隔時間 (秒)
+@export var launch_cooldown: float = 0.1    # 最短發射間隔時間 (秒)
 
 # --- 內部狀態與記憶檔路徑 ---
 const SAVE_PATH = "user://settings.cfg"
@@ -68,7 +69,7 @@ var is_initializing: bool = true
 var pending_delete_preset_name: String = ""
 
 # 紀錄流水號與結果對應字典
-var ball_records: Array[Dictionary] = [] # 結構：[{ "id": 1, "ball": RigidBody2D, "prize": "滾動中..." }]
+var ball_records: Array[Dictionary] = []
 var current_ball_counter: int = 0
 
 # --- 節點引用 ---
@@ -103,7 +104,7 @@ var current_ball_counter: int = 0
 @onready var preset_option: OptionButton = $UI/SettingsPanel/VBox/ContentHBox/LeftVBox/PresetSelectHBox/PresetOption
 @onready var delete_preset_button: Button = $UI/SettingsPanel/VBox/ContentHBox/LeftVBox/PresetSelectHBox/DeletePresetButton
 
-# 彈珠數量控制項 UI 引用
+# 彈珠數量控制項 UI
 @onready var ball_count_minus_button: Button = $UI/SettingsPanel/VBox/ContentHBox/RightVBox/BallCountHBox/MinusButton
 @onready var ball_count_plus_button: Button = $UI/SettingsPanel/VBox/ContentHBox/RightVBox/BallCountHBox/PlusButton
 @onready var ball_count_input: LineEdit = $UI/SettingsPanel/VBox/ContentHBox/RightVBox/BallCountHBox/BallCountInput
@@ -195,8 +196,6 @@ func _on_ball_count_input_submitted(txt: String) -> void:
 
 func _update_launch_button_ui() -> void:
 	launch_button.text = "發射彈珠 (" + str(remaining_ball_count) + ")"
-	
-	# 只要還有剩餘彈珠、沒有開啟彈窗且冷卻已結束，就解除按鈕鎖定
 	var is_open = _is_any_panel_open()
 	if remaining_ball_count > 0 and not is_open and can_launch:
 		launch_button.disabled = false
@@ -451,7 +450,7 @@ func _on_shuffle_button_pressed() -> void:
 		_rebuild_slots()
 		_save_settings()
 
-# 清空彈珠並全數恢復可發射數量、重置紀錄清單
+# 清空彈珠並全數恢復可發射數量、重置紀錄清單與按鈕鎖定
 func _clear_all_balls() -> void:
 	for ball in active_balls:
 		if is_instance_valid(ball):
@@ -460,12 +459,10 @@ func _clear_all_balls() -> void:
 	ball_records.clear()
 	current_ball_counter = 0
 	
-	# 重置數量與冷卻狀態
 	remaining_ball_count = total_ball_count
 	can_launch = true
 	launch_timer = 0.0
 	
-	# 更新 UI 狀態
 	_update_launch_button_ui()
 	_update_result_log_ui()
 
@@ -568,7 +565,6 @@ func _on_launch_button_pressed() -> void:
 	ball.mass = ball_mass
 	ball.gravity_scale = ball_gravity_scale
 	
-	# 阻尼設定：加速彈珠在小格子內滾動靜止
 	ball.linear_damp = 0.8
 	ball.angular_damp = 0.8
 
@@ -585,7 +581,6 @@ func _on_launch_button_pressed() -> void:
 	add_child(ball)
 	active_balls.append(ball)
 
-	# 新增流水號記錄
 	current_ball_counter += 1
 	ball_records.append({
 		"id": current_ball_counter,
@@ -610,10 +605,19 @@ func _draw() -> void:
 	var view_size = get_viewport_rect().size
 	var center_x = view_size.x / 2.0
 
+	# 1. 繪製全域背景
 	draw_rect(Rect2(Vector2.ZERO, view_size), current_bg_color, true)
 
+	# 2. 自動根據全域背景色與 darken_factor 計算彈珠台內部背景色
+	var calculated_board_bg: Color
+	if board_bg_darken_factor >= 0.0:
+		calculated_board_bg = current_bg_color.darkened(board_bg_darken_factor)
+	else:
+		calculated_board_bg = current_bg_color.lightened(abs(board_bg_darken_factor))
+
+	# 3. 繪製彈珠台背景與外框
 	var board_rect = Rect2(center_x - board_width / 2.0, board_top_margin, board_width, board_height)
-	draw_rect(board_rect, board_bg_color, true)
+	draw_rect(board_rect, calculated_board_bg, true)
 	draw_rect(board_rect, board_border_color, false, 4.0)
 
 	for peg in pegs_container.get_children():
