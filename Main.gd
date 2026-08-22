@@ -23,18 +23,23 @@ extends Control
 @export var peg_outline_color: Color = Color("8b6508")  # 釘子描邊顏色
 @export var peg_outline_width: float = 2.0              # 釘子描邊粗細
 @export var ball_color: Color = Color("1e90ff")         # 彈珠顏色
+@export var fire_ball_color: Color = Color("#FF3D00")    # 火焰彈珠專用球體顏色
 
 @export_group("獎品區特效與色彩 (Slot FX)")
 @export var enable_slot_effects: bool = true        # 獎品區特效勾選框
-@export var slot_outline_width: int = 3             # 1. (修正) 獎品區文字描邊厚度必須為整數 (int)
+@export var slot_outline_width: int = 3             # 獎品區文字描邊厚度
 @export var slot_color_normal: Color = Color("#FFFFFF")   # 無彈珠顏色 (白色)
 @export var slot_color_single: Color = Color("#FFF59D")   # 1顆彈珠顏色 (淡黃色)
 @export var slot_color_multiple: Color = Color("#00E5FF") # 2顆以上彈珠顏色 (亮青色)
 @export var slot_shake_speed: float = 15.0          # 統一文字晃動速度 (Hz)
 
-@export_group("彈珠特效與參數")
-@export var enable_ball_trail: bool = true          # 彈珠拖尾特效勾選框
-@export var trail_length: int = 8                    # 拖尾長度 (歷史位置點數)
+@export_group("彈珠樣式與特效 (Ball Style)")
+# 0: 普通, 1: 滷蛋, 2: 幻影滷蛋, 3: 彩虹, 4: 火焰 (已刪除幻影彈珠)
+@export_enum("普通彈珠", "滷蛋彈珠", "幻影滷蛋", "彩虹彈珠", "火焰彈珠") var ball_style_type: int = 0
+@export var rainbow_trail_length: int = 30           # 彩虹拖尾長度
+@export var phantom_egg_spawn_interval: float = 0.08 # 幻影滷蛋殘影生成間隔 (秒)
+@export var phantom_egg_lifetime: float = 0.45       # 每個幻影滷蛋殘影的獨立壽命 (秒)
+@export var egg_texture_path: String = "res://egg_ball.png" # 滷蛋圖片路徑
 
 @export_group("彈珠台尺寸與位置 (Board Size)")
 @export var board_width: float = 800.0     # 彈珠台寬度
@@ -85,7 +90,13 @@ var pending_delete_preset_name: String = ""
 # 紀錄流水號與結果對應字典
 var ball_records: Array[Dictionary] = []
 var current_ball_counter: int = 0
-var ball_trails: Dictionary = {}
+
+# 獨立殘影與彩虹軌跡資料結構
+var ball_trails: Dictionary = {}        # 彩虹彈珠軌跡：{ ball: [Vector2] }
+var phantom_ghosts: Array[Dictionary] = [] # 幻影滷蛋獨立殘影：[{ pos, rot, alpha, life, max_life }]
+var phantom_spawn_timers: Dictionary = {} # 每個滷蛋生成殘影的計時器：{ ball: float }
+
+var egg_texture: Texture2D = null
 
 # --- 節點引用 ---
 @onready var ball_spawner: Marker2D = $BallSpawner
@@ -131,7 +142,7 @@ var ball_trails: Dictionary = {}
 @onready var sound_label: Label = $UI/DisplayPanel/VBox/SoundLabel
 @onready var sound_slider: HSlider = $UI/DisplayPanel/VBox/SoundSlider
 @onready var slot_effect_check: CheckBox = $UI/DisplayPanel/VBox/EffectHBox/SlotEffectCheck
-@onready var trail_effect_check: CheckBox = $UI/DisplayPanel/VBox/EffectHBox/TrailEffectCheck
+@onready var ball_style_option: OptionButton = $UI/DisplayPanel/VBox/EffectHBox/BallStyleOption
 
 var custom_font: Font = null
 var active_balls: Array[RigidBody2D] = []
@@ -144,6 +155,10 @@ func _ready() -> void:
 	if ResourceLoader.exists("res://NotoSansTC-VariableFont_wght.ttf"):
 		custom_font = load("res://NotoSansTC-VariableFont_wght.ttf")
 
+	if ResourceLoader.exists(egg_texture_path):
+		egg_texture = load(egg_texture_path)
+
+	_setup_ball_style_option_ui()
 	_load_settings()
 	remaining_ball_count = total_ball_count
 	_setup_system_buttons()
@@ -171,7 +186,7 @@ func _ready() -> void:
 	slot_font_slider.value_changed.connect(_on_slot_font_slider_value_changed)
 	sound_slider.value_changed.connect(_on_sound_slider_value_changed)
 	slot_effect_check.toggled.connect(func(val): enable_slot_effects = val; _save_settings())
-	trail_effect_check.toggled.connect(func(val): enable_ball_trail = val; _save_settings())
+	ball_style_option.item_selected.connect(_on_ball_style_selected)
 	
 	_update_ui_font_size(ui_font_size)
 	_refresh_item_list_ui()
@@ -186,6 +201,25 @@ func _ready() -> void:
 
 	is_initializing = false
 
+func _setup_ball_style_option_ui() -> void:
+	ball_style_option.clear()
+	ball_style_option.add_item("普通彈珠")   # 0
+	ball_style_option.add_item("滷蛋彈珠")   # 1
+	ball_style_option.add_item("幻影滷蛋")   # 2
+	ball_style_option.add_item("彩虹彈珠")   # 3
+	ball_style_option.add_item("火焰彈珠")   # 4
+
+func _on_ball_style_selected(idx: int) -> void:
+	ball_style_type = idx
+	_clean_ball_particles_and_trails()
+	
+	if ball_style_type == 4: # 火焰彈珠
+		for ball in active_balls:
+			if is_instance_valid(ball) and not ball.has_node("FireParticles"):
+				_attach_fire_particle_effect(ball)
+
+	_save_settings()
+
 func _process(delta: float) -> void:
 	if not can_launch:
 		launch_timer -= delta
@@ -195,15 +229,53 @@ func _process(delta: float) -> void:
 				launch_button.disabled = false
 
 	active_balls = active_balls.filter(func(b): return is_instance_valid(b))
-	for ball in active_balls:
-		if not ball_trails.has(ball):
-			ball_trails[ball] = []
-		var trail: Array = ball_trails[ball]
-		trail.append(ball.position)
-		if trail.size() > trail_length:
-			trail.pop_front()
+
+	# 1. 獨立殘影生命週期與生成控制 (幻影滷蛋: 模式 2)
+	if ball_style_type == 2:
+		for ball in active_balls:
+			var speed = ball.linear_velocity.length()
+			if speed > 15.0: # 移動中才定時釋放殘影
+				var t = phantom_spawn_timers.get(ball, 0.0) + delta
+				if t >= phantom_egg_spawn_interval:
+					t = 0.0
+					phantom_ghosts.append({
+						"pos": ball.position,
+						"rot": ball.rotation,
+						"life": phantom_egg_lifetime,
+						"max_life": phantom_egg_lifetime
+					})
+				phantom_spawn_timers[ball] = t
+
+		# 更新所有舊殘影的獨立壽命
+		var i = phantom_ghosts.size() - 1
+		while i >= 0:
+			var g = phantom_ghosts[i]
+			g["life"] -= delta
+			if g["life"] <= 0:
+				phantom_ghosts.remove_at(i)
+			i -= 1
+
+	# 2. 彩虹彈珠軌跡採樣 (模式 3)
+	if ball_style_type == 3:
+		for ball in active_balls:
+			if not ball_trails.has(ball):
+				ball_trails[ball] = []
+			var trail: Array = ball_trails[ball]
+			trail.append(ball.position)
+			if trail.size() > rainbow_trail_length:
+				trail.pop_front()
 
 	queue_redraw()
+
+func _clean_ball_particles_and_trails() -> void:
+	ball_trails.clear()
+	phantom_ghosts.clear()
+	phantom_spawn_timers.clear()
+	for ball in active_balls:
+		if is_instance_valid(ball):
+			for child in ball.get_children():
+				if child is CPUParticles2D:
+					child.queue_free()
 
 func _update_result_log_ui() -> void:
 	var log_text = ""
@@ -239,7 +311,7 @@ func _save_settings() -> void:
 	config.set_value("display", "sound_volume", sound_volume)
 	config.set_value("display", "bg_color", current_bg_color)
 	config.set_value("display", "enable_slot_effects", enable_slot_effects)
-	config.set_value("display", "enable_ball_trail", enable_ball_trail)
+	config.set_value("display", "ball_style_type", ball_style_type)
 	config.set_value("gameplay", "prize_list", prize_list)
 	config.set_value("gameplay", "total_ball_count", total_ball_count)
 	config.save(SAVE_PATH)
@@ -255,7 +327,7 @@ func _load_settings() -> void:
 		sound_volume = config.get_value("display", "sound_volume", 100)
 		current_bg_color = config.get_value("display", "bg_color", default_bg)
 		enable_slot_effects = config.get_value("display", "enable_slot_effects", true)
-		enable_ball_trail = config.get_value("display", "enable_ball_trail", true)
+		ball_style_type = config.get_value("display", "ball_style_type", 0)
 		prize_list = config.get_value("gameplay", "prize_list", prize_list)
 		total_ball_count = config.get_value("gameplay", "total_ball_count", total_ball_count)
 	else:
@@ -269,7 +341,7 @@ func _load_settings() -> void:
 	sound_slider.value = sound_volume
 	sound_label.text = "遊戲音效: " + str(sound_volume)
 	slot_effect_check.button_pressed = enable_slot_effects
-	trail_effect_check.button_pressed = enable_ball_trail
+	ball_style_option.select(ball_style_type)
 	ball_count_input.text = str(total_ball_count)
 
 func _setup_bg_color_buttons() -> void:
@@ -439,7 +511,7 @@ func _update_ui_font_size(new_size: int) -> void:
 		$UI/DisplayPanel/VBox/BGColorLabel, $UI/DisplayPanel/VBox/UIFontLabel,
 		$UI/DisplayPanel/VBox/SlotFontLabel, sound_label,
 		$UI/DisplayPanel/VBox/EffectHBox/SlotEffectCheck,
-		$UI/DisplayPanel/VBox/EffectHBox/TrailEffectCheck,
+		$UI/DisplayPanel/VBox/EffectHBox/BallStyleLabel, ball_style_option,
 		$UI/DisplayPanel/VBox/CloseDisplayButton, $UI/DeleteConfirmPanel/VBox/Title,
 		delete_confirm_text, $UI/DeleteConfirmPanel/VBox/HBox/DeleteConfirmOkButton,
 		$UI/DeleteConfirmPanel/VBox/HBox/DeleteConfirmCancelButton,
@@ -505,12 +577,12 @@ func _on_shuffle_button_pressed() -> void:
 		_save_settings()
 
 func _clear_all_balls() -> void:
+	_clean_ball_particles_and_trails()
 	for ball in active_balls:
 		if is_instance_valid(ball):
 			ball.queue_free()
 	active_balls.clear()
 	ball_records.clear()
-	ball_trails.clear()
 	current_ball_counter = 0
 	
 	remaining_ball_count = total_ball_count
@@ -628,6 +700,10 @@ func _on_launch_button_pressed() -> void:
 	col.shape = circle_shape
 	ball.add_child(col)
 
+	# 火焰粒子效果 (模式 4)
+	if ball_style_type == 4:
+		_attach_fire_particle_effect(ball)
+
 	var spawn_pos = ball_spawner.global_position
 	spawn_pos.x += randf_range(-spawn_x_offset, spawn_x_offset)
 	ball.position = spawn_pos
@@ -642,6 +718,24 @@ func _on_launch_button_pressed() -> void:
 		"prize": "滾動中..."
 	})
 	_update_result_log_ui()
+
+func _attach_fire_particle_effect(ball: RigidBody2D) -> void:
+	var particles = CPUParticles2D.new()
+	particles.name = "FireParticles"
+	particles.amount = 25
+	particles.lifetime = 0.4
+	particles.explosiveness = 0.05
+	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+	particles.emission_sphere_radius = ball_radius * 0.7
+	particles.direction = Vector2(0, -1)
+	particles.spread = 25.0
+	particles.gravity = Vector2(0, -250)
+	particles.initial_velocity_min = 40.0
+	particles.initial_velocity_max = 80.0
+	particles.scale_amount_min = 3.0
+	particles.scale_amount_max = 7.0
+	particles.color = Color("#FF5722")
+	ball.add_child(particles)
 
 func _on_clear_button_pressed() -> void:
 	if _is_any_panel_open(): return
@@ -668,37 +762,72 @@ func _get_balls_in_slot(slot_idx: int, slot_width: float, center_x: float, botto
 func _draw() -> void:
 	var view_size = get_viewport_rect().size
 	var center_x = view_size.x / 2.0
+	var time_sec = Time.get_ticks_msec() / 1000.0
 
+	# 1. 全域背景
 	draw_rect(Rect2(Vector2.ZERO, view_size), current_bg_color, true)
 
+	# 2. 彈珠台背景與外框
 	var calculated_board_bg = current_bg_color.darkened(board_bg_darken_factor) if board_bg_darken_factor >= 0 else current_bg_color.lightened(abs(board_bg_darken_factor))
 	var board_rect = Rect2(center_x - board_width / 2.0, board_top_margin, board_width, board_height)
 	draw_rect(board_rect, calculated_board_bg, true)
 	draw_rect(board_rect, board_border_color, false, 4.0)
 
+	# 3. 釘子
 	for peg in pegs_container.get_children():
 		if peg_outline_width > 0.0:
 			draw_circle(peg.position, peg_radius + peg_outline_width, peg_outline_color)
 		draw_circle(peg.position, peg_radius, peg_color)
 
-	if enable_ball_trail:
+	# 4. 獨立壽命殘影繪製 (模式 2: 幻影滷蛋)
+	if ball_style_type == 2:
+		for g in phantom_ghosts:
+			var alpha_ratio = clamp(g["life"] / g["max_life"], 0.0, 1.0) * 0.45
+			var ball_size = Vector2(ball_radius * 2.0, ball_radius * 2.0)
+			draw_set_transform(g["pos"], g["rot"], Vector2.ONE)
+			if egg_texture:
+				draw_texture_rect(egg_texture, Rect2(-ball_size / 2.0, ball_size), false, Color(1, 1, 1, alpha_ratio))
+			else:
+				draw_circle(Vector2.ZERO, ball_radius, Color(0.55, 0.43, 0.39, alpha_ratio))
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+	# 5. 彩虹拖尾繪製 (模式 3)
+	if ball_style_type == 3:
 		for ball in active_balls:
 			if is_instance_valid(ball) and ball_trails.has(ball):
 				var trail: Array = ball_trails[ball]
 				for t_idx in range(trail.size()):
-					var alpha = float(t_idx + 1) / float(trail.size()) * 0.4
+					var alpha = float(t_idx + 1) / float(trail.size()) * 0.45
+					var hue = fmod(time_sec * 0.5 + float(t_idx) * 0.03, 1.0)
+					var rainbow_col = Color.from_hsv(hue, 0.8, 1.0, alpha)
 					var radius = ball_radius * (0.3 + 0.7 * alpha)
-					draw_circle(trail[t_idx], radius, Color(ball_color.r, ball_color.g, ball_color.b, alpha))
+					draw_circle(trail[t_idx], radius, rainbow_col)
 
+	# 6. 彈珠本體繪製
 	for ball in active_balls:
 		if is_instance_valid(ball):
-			draw_circle(ball.position, ball_radius, ball_color)
+			if ball_style_type in [1, 2]: # 1: 滷蛋彈珠, 2: 幻影滷蛋
+				var ball_size = Vector2(ball_radius * 2.0, ball_radius * 2.0)
+				draw_set_transform(ball.position, ball.rotation, Vector2.ONE)
+				if egg_texture:
+					draw_texture_rect(egg_texture, Rect2(-ball_size / 2.0, ball_size), false)
+				else:
+					draw_circle(Vector2.ZERO, ball_radius, Color("#8D6E63"))
+				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			elif ball_style_type == 3: # 3: 彩虹彈珠本體
+				var current_hue = fmod(time_sec * 0.6 + ball.get_instance_id() * 0.1, 1.0)
+				var rainbow_color = Color.from_hsv(current_hue, 0.85, 1.0)
+				draw_circle(ball.position, ball_radius, rainbow_color)
+			elif ball_style_type == 4: # 4: 火焰彈珠本體
+				draw_circle(ball.position, ball_radius, fire_ball_color)
+			else: # 0: 普通彈珠
+				draw_circle(ball.position, ball_radius, ball_color)
 
+	# 7. 獎項文字與動態特效渲染
 	var current_count = max(1, prize_list.size())
 	var slot_width = board_width / current_count
 	var bottom_y = board_top_margin + board_height
 	var font_to_use = custom_font if custom_font else ThemeDB.fallback_font
-	var time_sec = Time.get_ticks_msec() / 1000.0
 
 	for i in range(current_count):
 		var slot_left = (center_x - board_width / 2.0) + i * slot_width
