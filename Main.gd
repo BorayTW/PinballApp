@@ -34,12 +34,12 @@ extends Control
 @export var slot_shake_speed: float = 15.0          # 統一文字晃動速度 (Hz)
 
 @export_group("彈珠樣式與特效 (Ball Style)")
-# 0: 普通, 1: 滷蛋, 2: 幻影滷蛋, 3: 彩虹, 4: 火焰 (已刪除幻影彈珠)
+# 0: 普通, 1: 滷蛋, 2: 幻影滷蛋, 3: 彩虹, 4: 火焰
 @export_enum("普通彈珠", "滷蛋彈珠", "幻影滷蛋", "彩虹彈珠", "火焰彈珠") var ball_style_type: int = 0
 @export var rainbow_trail_length: int = 30           # 彩虹拖尾長度
 @export var phantom_egg_spawn_interval: float = 0.08 # 幻影滷蛋殘影生成間隔 (秒)
 @export var phantom_egg_lifetime: float = 0.45       # 每個幻影滷蛋殘影的獨立壽命 (秒)
-@export var egg_texture_path: String = "res://egg_ball.png" # 滷蛋圖片路徑
+@export var egg_folder_path: String = "res://Assets/EggBall/" # 滷蛋圖庫資料夾路徑
 
 @export_group("彈珠台尺寸與位置 (Board Size)")
 @export var board_width: float = 800.0     # 彈珠台寬度
@@ -92,17 +92,22 @@ var ball_records: Array[Dictionary] = []
 var current_ball_counter: int = 0
 
 # 獨立殘影與彩虹軌跡資料結構
-var ball_trails: Dictionary = {}        # 彩虹彈珠軌跡：{ ball: [Vector2] }
-var phantom_ghosts: Array[Dictionary] = [] # 幻影滷蛋獨立殘影：[{ pos, rot, alpha, life, max_life }]
-var phantom_spawn_timers: Dictionary = {} # 每個滷蛋生成殘影的計時器：{ ball: float }
+var ball_trails: Dictionary = {}        
+var phantom_ghosts: Array[Dictionary] = [] 
+var phantom_spawn_timers: Dictionary = {} 
 
-var egg_texture: Texture2D = null
+# 多圖庫與吉祥物控制
+var egg_textures: Array[Texture2D] = []
+var ball_texture_map: Dictionary = {} 
+var mascot_flip_timer: float = 0.0
+var mascot_dance_time: float = 0.0 # 果凍跳動時間計數器
 
 # --- 節點引用 ---
 @onready var ball_spawner: Marker2D = $BallSpawner
 @onready var board_node: StaticBody2D = $Board
 @onready var pegs_container: Node2D = $Pegs
 @onready var slots_container: Node2D = $Slots
+@onready var mascot_rect: TextureRect = $UI/MascotRect
 
 @onready var launch_button: Button = $UI/BottomVBox/HBoxContainer/LaunchButton
 @onready var clear_button: Button = $UI/BottomVBox/HBoxContainer/ClearButton
@@ -155,8 +160,7 @@ func _ready() -> void:
 	if ResourceLoader.exists("res://NotoSansTC-VariableFont_wght.ttf"):
 		custom_font = load("res://NotoSansTC-VariableFont_wght.ttf")
 
-	if ResourceLoader.exists(egg_texture_path):
-		egg_texture = load(egg_texture_path)
+	_load_egg_textures()
 
 	_setup_ball_style_option_ui()
 	_load_settings()
@@ -192,6 +196,7 @@ func _ready() -> void:
 	_refresh_item_list_ui()
 	_update_launch_button_ui()
 	_update_result_log_ui()
+	_reset_mascot_to_default() 
 	_setup_board_boundaries()
 	_generate_pegs()
 	_generate_slots()
@@ -200,6 +205,35 @@ func _ready() -> void:
 	ball_spawner.position = Vector2(view_size.x / 2.0, board_top_margin + 20)
 
 	is_initializing = false
+
+func _load_egg_textures() -> void:
+	egg_textures.clear()
+	if DirAccess.dir_exists_absolute(egg_folder_path):
+		var dir = DirAccess.open(egg_folder_path)
+		if dir:
+			dir.list_dir_begin()
+			var file_name = dir.get_next()
+			var loaded_files: Array[String] = []
+			while file_name != "":
+				if not dir.current_is_dir() and (file_name.ends_with(".png") or file_name.ends_with(".png.remap")):
+					var clean_name = file_name.replace(".remap", "")
+					if not clean_name in loaded_files:
+						loaded_files.append(clean_name)
+				file_name = dir.get_next()
+			
+			loaded_files.sort()
+			for f in loaded_files:
+				var tex = load(egg_folder_path + f)
+				if tex:
+					egg_textures.append(tex)
+	
+	if egg_textures.size() == 0 and ResourceLoader.exists("res://egg_ball.png"):
+		var single_tex = load("res://egg_ball.png")
+		if single_tex: egg_textures.append(single_tex)
+
+func _reset_mascot_to_default() -> void:
+	if egg_textures.size() > 0:
+		mascot_rect.texture = egg_textures[0]
 
 func _setup_ball_style_option_ui() -> void:
 	ball_style_option.clear()
@@ -213,7 +247,7 @@ func _on_ball_style_selected(idx: int) -> void:
 	ball_style_type = idx
 	_clean_ball_particles_and_trails()
 	
-	if ball_style_type == 4: # 火焰彈珠
+	if ball_style_type == 4:
 		for ball in active_balls:
 			if is_instance_valid(ball) and not ball.has_node("FireParticles"):
 				_attach_fire_particle_effect(ball)
@@ -228,25 +262,39 @@ func _process(delta: float) -> void:
 			if not _is_any_panel_open() and remaining_ball_count > 0:
 				launch_button.disabled = false
 
+	# 1. 史萊姆果凍彈跳效果 (Squash & Stretch)
+	mascot_dance_time += delta * 12.0 # 抖動頻率速度
+	mascot_flip_timer += delta
+	
+	var squash_y = 1.0 + sin(mascot_dance_time) * 0.08
+	var squash_x = 1.0 - sin(mascot_dance_time) * 0.05
+	
+	if mascot_flip_timer >= 1.2:
+		mascot_flip_timer = 0.0
+		mascot_rect.flip_h = not mascot_rect.flip_h
+		
+	mascot_rect.scale = Vector2(squash_x, squash_y)
+
 	active_balls = active_balls.filter(func(b): return is_instance_valid(b))
 
-	# 1. 獨立殘影生命週期與生成控制 (幻影滷蛋: 模式 2)
+	# 幻影滷蛋殘影生命週期與生成 (模式 2)
 	if ball_style_type == 2:
 		for ball in active_balls:
 			var speed = ball.linear_velocity.length()
-			if speed > 15.0: # 移動中才定時釋放殘影
+			if speed > 15.0:
 				var t = phantom_spawn_timers.get(ball, 0.0) + delta
 				if t >= phantom_egg_spawn_interval:
 					t = 0.0
+					var ball_tex = ball_texture_map.get(ball, null)
 					phantom_ghosts.append({
 						"pos": ball.position,
 						"rot": ball.rotation,
+						"tex": ball_tex,
 						"life": phantom_egg_lifetime,
 						"max_life": phantom_egg_lifetime
 					})
 				phantom_spawn_timers[ball] = t
 
-		# 更新所有舊殘影的獨立壽命
 		var i = phantom_ghosts.size() - 1
 		while i >= 0:
 			var g = phantom_ghosts[i]
@@ -255,7 +303,7 @@ func _process(delta: float) -> void:
 				phantom_ghosts.remove_at(i)
 			i -= 1
 
-	# 2. 彩虹彈珠軌跡採樣 (模式 3)
+	# 彩虹彈珠軌跡採樣 (模式 3)
 	if ball_style_type == 3:
 		for ball in active_balls:
 			if not ball_trails.has(ball):
@@ -271,6 +319,7 @@ func _clean_ball_particles_and_trails() -> void:
 	ball_trails.clear()
 	phantom_ghosts.clear()
 	phantom_spawn_timers.clear()
+	ball_texture_map.clear()
 	for ball in active_balls:
 		if is_instance_valid(ball):
 			for child in ball.get_children():
@@ -589,6 +638,7 @@ func _clear_all_balls() -> void:
 	can_launch = true
 	launch_timer = 0.0
 	
+	_reset_mascot_to_default()
 	_update_launch_button_ui()
 	_update_result_log_ui()
 
@@ -700,6 +750,12 @@ func _on_launch_button_pressed() -> void:
 	col.shape = circle_shape
 	ball.add_child(col)
 
+	# 從圖庫抽出貼圖，並同步給左側果凍吉祥物
+	if egg_textures.size() > 0:
+		var picked_tex = egg_textures.pick_random()
+		ball_texture_map[ball] = picked_tex
+		mascot_rect.texture = picked_tex
+
 	# 火焰粒子效果 (模式 4)
 	if ball_style_type == 4:
 		_attach_fire_particle_effect(ball)
@@ -784,9 +840,11 @@ func _draw() -> void:
 		for g in phantom_ghosts:
 			var alpha_ratio = clamp(g["life"] / g["max_life"], 0.0, 1.0) * 0.45
 			var ball_size = Vector2(ball_radius * 2.0, ball_radius * 2.0)
+			var ghost_tex: Texture2D = g.get("tex", null)
+			
 			draw_set_transform(g["pos"], g["rot"], Vector2.ONE)
-			if egg_texture:
-				draw_texture_rect(egg_texture, Rect2(-ball_size / 2.0, ball_size), false, Color(1, 1, 1, alpha_ratio))
+			if ghost_tex:
+				draw_texture_rect(ghost_tex, Rect2(-ball_size / 2.0, ball_size), false, Color(1, 1, 1, alpha_ratio))
 			else:
 				draw_circle(Vector2.ZERO, ball_radius, Color(0.55, 0.43, 0.39, alpha_ratio))
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -808,9 +866,12 @@ func _draw() -> void:
 		if is_instance_valid(ball):
 			if ball_style_type in [1, 2]: # 1: 滷蛋彈珠, 2: 幻影滷蛋
 				var ball_size = Vector2(ball_radius * 2.0, ball_radius * 2.0)
+				var fallback_tex: Texture2D = egg_textures[0] if egg_textures.size() > 0 else null
+				var b_tex: Texture2D = ball_texture_map.get(ball, fallback_tex)
+				
 				draw_set_transform(ball.position, ball.rotation, Vector2.ONE)
-				if egg_texture:
-					draw_texture_rect(egg_texture, Rect2(-ball_size / 2.0, ball_size), false)
+				if b_tex:
+					draw_texture_rect(b_tex, Rect2(-ball_size / 2.0, ball_size), false)
 				else:
 					draw_circle(Vector2.ZERO, ball_radius, Color("#8D6E63"))
 				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

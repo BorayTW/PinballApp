@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b2j1sl7wmwi3a"
-path="res://.godot/imported/009.png-dc351ecb8de4e3dbd70832d1fd51631e.ctex"
+uid="uid://bw7jmxv627wtg"
+path="res://.godot/imported/010.png-1299e118c1cb24904f97f254d55e14e0.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Assets/Winning/009.png"
-dest_files=["res://.godot/imported/009.png-dc351ecb8de4e3dbd70832d1fd51631e.ctex"]
+source_file="res://Assets/EggBall/010.png"
+dest_files=["res://.godot/imported/010.png-1299e118c1cb24904f97f254d55e14e0.ctex"]
 
 [params]
 

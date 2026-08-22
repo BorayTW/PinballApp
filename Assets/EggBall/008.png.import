@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://itoowuh3272p"
-path="res://.godot/imported/003.png-a3d23657a174d32e792de0feb8366b66.ctex"
+uid="uid://cpvfajs3fxxxj"
+path="res://.godot/imported/008.png-718437bc1ac58fb47271b2193b62dae7.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Assets/Dancing/003.png"
-dest_files=["res://.godot/imported/003.png-a3d23657a174d32e792de0feb8366b66.ctex"]
+source_file="res://Assets/EggBall/008.png"
+dest_files=["res://.godot/imported/008.png-718437bc1ac58fb47271b2193b62dae7.ctex"]
 
 [params]
 

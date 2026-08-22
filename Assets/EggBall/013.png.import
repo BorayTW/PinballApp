@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bv04kxqyweiw5"
-path="res://.godot/imported/002.png-d50ffff275155ebd4ae4c16f5878b341.ctex"
+uid="uid://celb17x1llh2h"
+path="res://.godot/imported/013.png-e84aa2bfb3eace49aa0bed67130f0c1f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Assets/Dancing/002.png"
-dest_files=["res://.godot/imported/002.png-d50ffff275155ebd4ae4c16f5878b341.ctex"]
+source_file="res://Assets/EggBall/013.png"
+dest_files=["res://.godot/imported/013.png-e84aa2bfb3eace49aa0bed67130f0c1f.ctex"]
 
 [params]
 
