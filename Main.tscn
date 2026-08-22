@@ -1,6 +1,22 @@
-[gd_scene load_steps=2 format=3 uid="uid://dctdtn5vcl1a5"]
+[gd_scene load_steps=3 format=3 uid="uid://dctdtn5vcl1a5"]
 
 [ext_resource type="Script" uid="uid://dimbldiu5e0jp" path="res://Main.gd" id="1_main"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.15, 0.17, 0.22, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.35, 0.38, 0.45, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+expand_margin_left = 15.0
+expand_margin_top = 15.0
+expand_margin_right = 15.0
+expand_margin_bottom = 15.0
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -125,29 +141,52 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -100.0
-offset_right = 150.0
-offset_bottom = 100.0
+offset_left = -160.0
+offset_top = -140.0
+offset_right = 160.0
+offset_bottom = 140.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
 [node name="VBox" type="VBoxContainer" parent="UI/DisplayPanel"]
 layout_mode = 2
-theme_override_constants/separation = 15
-alignment = 1
+theme_override_constants/separation = 12
 
 [node name="Title" type="Label" parent="UI/DisplayPanel/VBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
-text = "遊戲設定"
+text = "畫面與主題設定"
 horizontal_alignment = 1
 
+[node name="BGColorLabel" type="Label" parent="UI/DisplayPanel/VBox"]
+layout_mode = 2
+text = "背景主題顏色"
+
+[node name="BGColorPicker" type="ColorPickerButton" parent="UI/DisplayPanel/VBox"]
+custom_minimum_size = Vector2(0, 35)
+layout_mode = 2
+
+[node name="UIFontLabel" type="Label" parent="UI/DisplayPanel/VBox"]
+layout_mode = 2
+text = "UI 按鈕與選單大小"
+
+[node name="UIFontSlider" type="HSlider" parent="UI/DisplayPanel/VBox"]
+custom_minimum_size = Vector2(250, 0)
+layout_mode = 2
+min_value = 14.0
+max_value = 32.0
+value = 18.0
+
+[node name="Spacer" type="Control" parent="UI/DisplayPanel/VBox"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+
 [node name="CloseDisplayButton" type="Button" parent="UI/DisplayPanel/VBox"]
-custom_minimum_size = Vector2(100, 40)
+custom_minimum_size = Vector2(120, 40)
 layout_mode = 2
 size_flags_horizontal = 4
-text = "關閉"
+text = "完成並關閉"
 
 [node name="SettingsPanel" type="PanelContainer" parent="UI"]
 visible = false
@@ -156,26 +195,109 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -100.0
-offset_right = 150.0
-offset_bottom = 100.0
+offset_left = -310.0
+offset_top = -180.0
+offset_right = 310.0
+offset_bottom = 180.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
 [node name="VBox" type="VBoxContainer" parent="UI/SettingsPanel"]
 layout_mode = 2
-theme_override_constants/separation = 15
-alignment = 1
+theme_override_constants/separation = 12
 
 [node name="Title" type="Label" parent="UI/SettingsPanel/VBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
-text = "獎品名單設定"
+text = "獎品內容與名單設定"
 horizontal_alignment = 1
 
+[node name="ContentHBox" type="HBoxContainer" parent="UI/SettingsPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="LeftVBox" type="VBoxContainer" parent="UI/SettingsPanel/VBox/ContentHBox"]
+custom_minimum_size = Vector2(260, 0)
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="LeftTitle" type="Label" parent="UI/SettingsPanel/VBox/ContentHBox/LeftVBox"]
+layout_mode = 2
+text = "—— 預設名單記憶 ——"
+horizontal_alignment = 1
+
+[node name="PresetSaveHBox" type="HBoxContainer" parent="UI/SettingsPanel/VBox/ContentHBox/LeftVBox"]
+layout_mode = 2
+
+[node name="PresetNameInput" type="LineEdit" parent="UI/SettingsPanel/VBox/ContentHBox/LeftVBox/PresetSaveHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "輸入欲儲存的名單名稱..."
+
+[node name="SavePresetButton" type="Button" parent="UI/SettingsPanel/VBox/ContentHBox/LeftVBox/PresetSaveHBox"]
+layout_mode = 2
+text = "儲存"
+
+[node name="PresetSelectHBox" type="HBoxContainer" parent="UI/SettingsPanel/VBox/ContentHBox/LeftVBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="PresetOption" type="OptionButton" parent="UI/SettingsPanel/VBox/ContentHBox/LeftVBox/PresetSelectHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="DeletePresetButton" type="Button" parent="UI/SettingsPanel/VBox/ContentHBox/LeftVBox/PresetSelectHBox"]
+layout_mode = 2
+text = "刪除名單"
+
+[node name="VSeparator" type="VSeparator" parent="UI/SettingsPanel/VBox/ContentHBox"]
+layout_mode = 2
+
+[node name="RightVBox" type="VBoxContainer" parent="UI/SettingsPanel/VBox/ContentHBox"]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="RightTitle" type="Label" parent="UI/SettingsPanel/VBox/ContentHBox/RightVBox"]
+layout_mode = 2
+text = "—— 當前獎項編輯 ——"
+horizontal_alignment = 1
+
+[node name="InputHBox" type="HBoxContainer" parent="UI/SettingsPanel/VBox/ContentHBox/RightVBox"]
+layout_mode = 2
+
+[node name="AddInput" type="LineEdit" parent="UI/SettingsPanel/VBox/ContentHBox/RightVBox/InputHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "輸入名稱後點新增..."
+
+[node name="AddButton" type="Button" parent="UI/SettingsPanel/VBox/ContentHBox/RightVBox/InputHBox"]
+custom_minimum_size = Vector2(70, 0)
+layout_mode = 2
+text = "新增"
+
+[node name="ItemList" type="ItemList" parent="UI/SettingsPanel/VBox/ContentHBox/RightVBox"]
+custom_minimum_size = Vector2(280, 140)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ActionHBox" type="HBoxContainer" parent="UI/SettingsPanel/VBox/ContentHBox/RightVBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="DeleteButton" type="Button" parent="UI/SettingsPanel/VBox/ContentHBox/RightVBox/ActionHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "刪除選取"
+
+[node name="ShuffleButton" type="Button" parent="UI/SettingsPanel/VBox/ContentHBox/RightVBox/ActionHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "隨機打亂"
+
 [node name="CloseSettingsButton" type="Button" parent="UI/SettingsPanel/VBox"]
-custom_minimum_size = Vector2(100, 40)
+custom_minimum_size = Vector2(120, 40)
 layout_mode = 2
 size_flags_horizontal = 4
-text = "關閉"
+text = "完成並關閉"
