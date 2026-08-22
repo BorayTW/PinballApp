@@ -1,6 +1,18 @@
-[gd_scene load_steps=3 format=3 uid="uid://dctdtn5vcl1a5"]
+[gd_scene load_steps=4 format=3 uid="uid://dctdtn5vcl1a5"]
 
 [ext_resource type="Script" uid="uid://dimbldiu5e0jp" path="res://Main.gd" id="1_main"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_log"]
+bg_color = Color(0.1, 0.12, 0.16, 0.65)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.3, 0.35, 0.4, 0.6)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
 bg_color = Color(0.15, 0.17, 0.22, 1)
@@ -76,6 +88,34 @@ custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 text = "獎品名單"
 
+[node name="ResultPanel" type="PanelContainer" parent="UI"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -193.0
+offset_top = 132.0
+offset_right = -36.0
+offset_bottom = 637.0
+grow_horizontal = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_log")
+
+[node name="VBox" type="VBoxContainer" parent="UI/ResultPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="UI/ResultPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "—— 抽獎紀錄 ——"
+horizontal_alignment = 1
+
+[node name="ResultLogText" type="RichTextLabel" parent="UI/ResultPanel/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/normal_font_size = 14
+bbcode_enabled = true
+scroll_following = true
+
 [node name="VersionLabel" type="Label" parent="UI"]
 anchors_preset = 2
 anchor_top = 1.0
@@ -97,22 +137,12 @@ anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
 offset_left = -250.0
-offset_top = -110.0
+offset_top = -80.0
 offset_right = 250.0
 offset_bottom = -15.0
 grow_horizontal = 2
 grow_vertical = 0
 alignment = 1
-
-[node name="ResultLabel" type="Label" parent="UI/BottomVBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "請點擊『發射彈珠』開始抽獎！"
-horizontal_alignment = 1
-
-[node name="ControlSpacer" type="Control" parent="UI/BottomVBox"]
-custom_minimum_size = Vector2(0, 5)
-layout_mode = 2
 
 [node name="HBoxContainer" type="HBoxContainer" parent="UI/BottomVBox"]
 layout_mode = 2

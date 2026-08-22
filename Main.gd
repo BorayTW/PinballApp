@@ -49,7 +49,7 @@ extends Control
 
 @export_group("彈珠與發射機制 (Ball & Launch)")
 @export var total_ball_count: int = 10      # 可使用的彈珠總數量
-@export var max_ball_count_limit: int = 20  # 3. 彈珠數量上限（防止輸入過大數值）
+@export var max_ball_count_limit: int = 99  # 彈珠數量上限
 @export var ball_radius: float = 12.0       # 彈珠半徑
 @export var ball_bounce: float = 0.6        # 彈珠彈性
 @export var ball_mass: float = 1.0          # 彈珠質量
@@ -67,6 +67,10 @@ var current_bg_color: Color
 var is_initializing: bool = true
 var pending_delete_preset_name: String = ""
 
+# 紀錄流水號與結果對應字典
+var ball_records: Array[Dictionary] = [] # 結構：[{ "id": 1, "ball": RigidBody2D, "prize": "滾動中..." }]
+var current_ball_counter: int = 0
+
 # --- 節點引用 ---
 @onready var ball_spawner: Marker2D = $BallSpawner
 @onready var board_node: StaticBody2D = $Board
@@ -75,7 +79,7 @@ var pending_delete_preset_name: String = ""
 
 @onready var launch_button: Button = $UI/BottomVBox/HBoxContainer/LaunchButton
 @onready var clear_button: Button = $UI/BottomVBox/HBoxContainer/ClearButton
-@onready var result_label: Label = $UI/BottomVBox/ResultLabel
+@onready var result_log_text: RichTextLabel = $UI/ResultPanel/VBox/ResultLogText
 @onready var version_label: Label = $UI/VersionLabel
 
 @onready var restart_button: Button = $UI/TopLeftVBox/RestartButton
@@ -99,7 +103,7 @@ var pending_delete_preset_name: String = ""
 @onready var preset_option: OptionButton = $UI/SettingsPanel/VBox/ContentHBox/LeftVBox/PresetSelectHBox/PresetOption
 @onready var delete_preset_button: Button = $UI/SettingsPanel/VBox/ContentHBox/LeftVBox/PresetSelectHBox/DeletePresetButton
 
-# 1. 彈珠數量控制項 UI 引用
+# 彈珠數量控制項 UI 引用
 @onready var ball_count_minus_button: Button = $UI/SettingsPanel/VBox/ContentHBox/RightVBox/BallCountHBox/MinusButton
 @onready var ball_count_plus_button: Button = $UI/SettingsPanel/VBox/ContentHBox/RightVBox/BallCountHBox/PlusButton
 @onready var ball_count_input: LineEdit = $UI/SettingsPanel/VBox/ContentHBox/RightVBox/BallCountHBox/BallCountInput
@@ -136,7 +140,6 @@ func _ready() -> void:
 	save_preset_button.pressed.connect(_on_save_preset_button_pressed)
 	delete_preset_button.pressed.connect(_on_delete_preset_button_pressed)
 
-	# 1. 彈珠數量控制按鈕綁定
 	ball_count_minus_button.pressed.connect(func(): _update_total_ball_count(total_ball_count - 1))
 	ball_count_plus_button.pressed.connect(func(): _update_total_ball_count(total_ball_count + 1))
 	ball_count_input.text_submitted.connect(_on_ball_count_input_submitted)
@@ -149,13 +152,13 @@ func _ready() -> void:
 	_update_ui_font_size(ui_font_size)
 	_refresh_item_list_ui()
 	_update_launch_button_ui()
+	_update_result_log_ui()
 	_setup_board_boundaries()
 	_generate_pegs()
 	_generate_slots()
 
 	var view_size = get_viewport_rect().size
 	ball_spawner.position = Vector2(view_size.x / 2.0, board_top_margin + 20)
-	result_label.text = "請點擊『發射彈珠』開始抽獎！"
 
 	is_initializing = false
 
@@ -170,7 +173,14 @@ func _process(delta: float) -> void:
 	active_balls = active_balls.filter(func(b): return is_instance_valid(b))
 	queue_redraw()
 
-# --- 1 & 3. 彈珠數量設定邏輯 ---
+# --- 右側結果紀錄框渲染 ---
+func _update_result_log_ui() -> void:
+	var log_text = ""
+	for item in ball_records:
+		log_text += "(%d) %s\n" % [item["id"], item["prize"]]
+	result_log_text.text = log_text
+
+# --- 彈珠數量設定邏輯 ---
 func _update_total_ball_count(new_val: int) -> void:
 	total_ball_count = clamp(new_val, 1, max_ball_count_limit)
 	ball_count_input.text = str(total_ball_count)
@@ -183,11 +193,12 @@ func _on_ball_count_input_submitted(txt: String) -> void:
 	else:
 		ball_count_input.text = str(total_ball_count)
 
-# --- 2. 動態更新發射按鈕文字 ---
 func _update_launch_button_ui() -> void:
 	launch_button.text = "發射彈珠 (" + str(remaining_ball_count) + ")"
-	# 只要剩餘數量大於 0 且沒有打開彈窗，就解鎖按鈕
-	if remaining_ball_count > 0 and not _is_any_panel_open():
+	
+	# 只要還有剩餘彈珠、沒有開啟彈窗且冷卻已結束，就解除按鈕鎖定
+	var is_open = _is_any_panel_open()
+	if remaining_ball_count > 0 and not is_open and can_launch:
 		launch_button.disabled = false
 	else:
 		launch_button.disabled = true
@@ -367,7 +378,7 @@ func _on_ui_font_slider_value_changed(val: float) -> void:
 func _update_ui_font_size(new_size: int) -> void:
 	var ui_nodes = [
 		restart_button, quit_button, display_settings_button, settings_button,
-		launch_button, clear_button, result_label,
+		launch_button, clear_button,
 		$UI/SettingsPanel/VBox/Title, $UI/SettingsPanel/VBox/ContentHBox/LeftVBox/LeftTitle,
 		$UI/SettingsPanel/VBox/ContentHBox/RightVBox/RightTitle, preset_name_input, save_preset_button,
 		preset_option, delete_preset_button, add_input, add_button, delete_button, shuffle_button,
@@ -377,7 +388,8 @@ func _update_ui_font_size(new_size: int) -> void:
 		$UI/DisplayPanel/VBox/BGColorLabel, $UI/DisplayPanel/VBox/UIFontLabel,
 		$UI/DisplayPanel/VBox/CloseDisplayButton, $UI/DeleteConfirmPanel/VBox/Title,
 		delete_confirm_text, $UI/DeleteConfirmPanel/VBox/HBox/DeleteConfirmOkButton,
-		$UI/DeleteConfirmPanel/VBox/HBox/DeleteConfirmCancelButton
+		$UI/DeleteConfirmPanel/VBox/HBox/DeleteConfirmCancelButton,
+		$UI/ResultPanel/VBox/Title
 	]
 	for node in ui_nodes:
 		if node:
@@ -388,6 +400,10 @@ func _update_ui_font_size(new_size: int) -> void:
 	if item_list:
 		item_list.add_theme_font_size_override("font_size", max(10, new_size + item_list_font_offset))
 		if custom_font: item_list.add_theme_font_override("font", custom_font)
+		
+	if result_log_text:
+		result_log_text.add_theme_font_size_override("normal_font_size", max(12, new_size - 2))
+		if custom_font: result_log_text.add_theme_font_override("normal_font", custom_font)
 
 # --- 獎品列表編輯邏輯 ---
 func _refresh_item_list_ui() -> void:
@@ -435,15 +451,23 @@ func _on_shuffle_button_pressed() -> void:
 		_rebuild_slots()
 		_save_settings()
 
-# 4. 清空彈珠並全數恢復可發射數量
+# 清空彈珠並全數恢復可發射數量、重置紀錄清單
 func _clear_all_balls() -> void:
 	for ball in active_balls:
 		if is_instance_valid(ball):
 			ball.queue_free()
 	active_balls.clear()
+	ball_records.clear()
+	current_ball_counter = 0
+	
+	# 重置數量與冷卻狀態
 	remaining_ball_count = total_ball_count
-	can_launch = true # 確保冷卻狀態歸零
-	_update_launch_button_ui() # 會自動恢復發射按鈕為可點擊狀態
+	can_launch = true
+	launch_timer = 0.0
+	
+	# 更新 UI 狀態
+	_update_launch_button_ui()
+	_update_result_log_ui()
 
 func _rebuild_slots() -> void:
 	for c in slots_container.get_children(): c.queue_free()
@@ -528,14 +552,13 @@ func _generate_slots() -> void:
 func _on_launch_button_pressed() -> void:
 	if not can_launch or _is_any_panel_open() or remaining_ball_count <= 0: return
 
-	# 扣減數量並更新按鈕 UI
 	remaining_ball_count -= 1
 	_update_launch_button_ui()
 
 	can_launch = false
 	launch_timer = launch_cooldown
-	launch_button.disabled = true
-	result_label.text = "彈珠滾動中..."
+	if remaining_ball_count <= 0:
+		launch_button.disabled = true
 
 	var ball = RigidBody2D.new()
 	var phys_mat = PhysicsMaterial.new()
@@ -544,6 +567,10 @@ func _on_launch_button_pressed() -> void:
 	ball.physics_material_override = phys_mat
 	ball.mass = ball_mass
 	ball.gravity_scale = ball_gravity_scale
+	
+	# 阻尼設定：加速彈珠在小格子內滾動靜止
+	ball.linear_damp = 0.8
+	ball.angular_damp = 0.8
 
 	var col = CollisionShape2D.new()
 	var circle_shape = CircleShape2D.new()
@@ -558,14 +585,26 @@ func _on_launch_button_pressed() -> void:
 	add_child(ball)
 	active_balls.append(ball)
 
+	# 新增流水號記錄
+	current_ball_counter += 1
+	ball_records.append({
+		"id": current_ball_counter,
+		"ball": ball,
+		"prize": "滾動中..."
+	})
+	_update_result_log_ui()
+
 func _on_clear_button_pressed() -> void:
 	if _is_any_panel_open(): return
 	_clear_all_balls()
-	result_label.text = "已清空場上所有彈珠！"
 
 func _on_slot_entered(body: Node2D, prize_name: String) -> void:
 	if body is RigidBody2D and body in active_balls:
-		result_label.text = "🎉 恭喜獲得：" + prize_name + "！"
+		for rec in ball_records:
+			if rec["ball"] == body:
+				rec["prize"] = prize_name
+				_update_result_log_ui()
+				break
 
 func _draw() -> void:
 	var view_size = get_viewport_rect().size
