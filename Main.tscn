@@ -38,6 +38,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_main")
+slot_color_multiple = Color(0.496732, 0.85359, 1, 1)
 
 [node name="Board" type="StaticBody2D" parent="."]
 
@@ -92,10 +93,10 @@ text = "獎品名單"
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -193.0
-offset_top = 132.0
-offset_right = -36.0
-offset_bottom = 637.0
+offset_left = -190.0
+offset_top = 120.0
+offset_right = -20.0
+offset_bottom = 580.0
 grow_horizontal = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_log")
 
@@ -171,17 +172,17 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -160.0
-offset_top = -140.0
-offset_right = 160.0
-offset_bottom = 140.0
+offset_left = -170.0
+offset_top = -210.0
+offset_right = 170.0
+offset_bottom = 210.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
 [node name="VBox" type="VBoxContainer" parent="UI/DisplayPanel"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 10
 
 [node name="Title" type="Label" parent="UI/DisplayPanel/VBox"]
 layout_mode = 2
@@ -209,8 +210,43 @@ min_value = 14.0
 max_value = 32.0
 value = 18.0
 
+[node name="SlotFontLabel" type="Label" parent="UI/DisplayPanel/VBox"]
+layout_mode = 2
+text = "獎品區文字大小"
+
+[node name="SlotFontSlider" type="HSlider" parent="UI/DisplayPanel/VBox"]
+custom_minimum_size = Vector2(250, 0)
+layout_mode = 2
+min_value = 10.0
+max_value = 50.0
+value = 12.0
+
+[node name="SoundLabel" type="Label" parent="UI/DisplayPanel/VBox"]
+layout_mode = 2
+text = "遊戲音效: 100"
+
+[node name="SoundSlider" type="HSlider" parent="UI/DisplayPanel/VBox"]
+custom_minimum_size = Vector2(250, 0)
+layout_mode = 2
+value = 100.0
+
+[node name="EffectHBox" type="HBoxContainer" parent="UI/DisplayPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 15
+alignment = 1
+
+[node name="SlotEffectCheck" type="CheckBox" parent="UI/DisplayPanel/VBox/EffectHBox"]
+layout_mode = 2
+button_pressed = true
+text = "獎品區特效"
+
+[node name="TrailEffectCheck" type="CheckBox" parent="UI/DisplayPanel/VBox/EffectHBox"]
+layout_mode = 2
+button_pressed = true
+text = "彈珠拖尾特效"
+
 [node name="Spacer" type="Control" parent="UI/DisplayPanel/VBox"]
-custom_minimum_size = Vector2(0, 10)
+custom_minimum_size = Vector2(0, 5)
 layout_mode = 2
 
 [node name="CloseDisplayButton" type="Button" parent="UI/DisplayPanel/VBox"]
