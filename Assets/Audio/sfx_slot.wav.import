@@ -2,13 +2,13 @@
 
 importer="wav"
 type="AudioStreamWAV"
-uid="uid://b2uljeauxwg1x"
-path="res://.godot/imported/sfx_tick.wav-4d139eb3b88601fac64aa0667ded9c1a.sample"
+uid="uid://bht22ru504uaq"
+path="res://.godot/imported/sfx_slot.wav-fe2f5f6bd8779c498b33774b1b9d0b99.sample"
 
 [deps]
 
-source_file="res://Assets/Audio/sfx_tick.wav"
-dest_files=["res://.godot/imported/sfx_tick.wav-4d139eb3b88601fac64aa0667ded9c1a.sample"]
+source_file="res://Assets/Audio/sfx_slot.wav"
+dest_files=["res://.godot/imported/sfx_slot.wav-fe2f5f6bd8779c498b33774b1b9d0b99.sample"]
 
 [params]
 

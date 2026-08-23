@@ -28,6 +28,10 @@ extends Control
 @export var slot_color_multiple: Color = Color("#00E5FF") # 2顆以上彈珠顏色 (亮青色)
 @export var slot_shake_speed: float = 15.0          # 統一文字晃動速度 (Hz)
 
+@export_group("彈珠樣式與特效 (Ball Style)")
+@export var egg_ball_scale: float = 2              # 滷蛋彈珠圖片顯示放大倍率
+@export var egg_folder_path: String = "res://Assets/EggBall/" # 滷蛋圖庫資料夾路徑
+
 @export_group("彈珠台尺寸與位置 (Board Size)")
 @export var board_width: float = 800.0     # 彈珠台寬度
 @export var board_height: float = 520.0    # 彈珠台高度
@@ -51,7 +55,6 @@ extends Control
 @export var ball_gravity_scale: float = 1.2 # 重力倍率
 @export var spawn_x_offset: float = 15.0    # 發射初始位置隨機 X 軸偏移範圍
 @export var launch_cooldown: float = 0.2    # 最短發射間隔時間 (秒)
-@export var egg_folder_path: String = "res://Assets/EggBall/" # 滷蛋圖庫資料夾路徑
 
 # --- 內部模組與狀態 ---
 var rule_mgr: GameRuleManager = GameRuleManager.new()
@@ -453,12 +456,29 @@ func _generate_pegs() -> void:
 		for c in range(cols_in_row):
 			var peg_x = (center_x - board_width / 2.0) + spacing_x * (c + 1) + offset_x
 			var peg_y = start_y + spacing_y * r
-			var peg = StaticBody2D.new(); peg.position = Vector2(peg_x, peg_y)
-			var col = CollisionShape2D.new(); var circle_shape = CircleShape2D.new()
-			circle_shape.radius = peg_radius; col.shape = circle_shape; peg.add_child(col)
+			var peg = RigidBody2D.new() # 或者 StaticBody2D
+			peg.freeze = true # 設為靜態物理
+			peg.position = Vector2(peg_x, peg_y)
+			peg.max_contacts_reported = 3
+			peg.contact_monitor = true
 
-			var phys_mat = PhysicsMaterial.new(); phys_mat.bounce = peg_bounce; phys_mat.friction = 0.1
-			peg.physics_material_override = phys_mat; pegs_container.add_child(peg)
+			var col = CollisionShape2D.new()
+			var circle_shape = CircleShape2D.new()
+			circle_shape.radius = peg_radius
+			col.shape = circle_shape
+			peg.add_child(col)
+
+			var phys_mat = PhysicsMaterial.new()
+			phys_mat.bounce = peg_bounce
+			phys_mat.friction = 0.1
+			peg.physics_material_override = phys_mat
+
+			# 監聽彈珠撞擊釘子事件並播放音效
+			peg.body_entered.connect(func(_body):
+				if AudioManager: AudioManager.play_peg_bounce()
+			)
+
+			pegs_container.add_child(peg)
 
 func _generate_slots() -> void:
 	var center_x = get_viewport_rect().size.x / 2.0
@@ -488,12 +508,23 @@ func _on_launch_button_pressed() -> void:
 	if remaining_ball_count <= 0: launch_button.disabled = true
 
 	var ball = RigidBody2D.new()
+	
+	# 💡 開啟碰撞監聽 (使彈珠碰撞釘子或其它彈珠時能發射訊號)
+	ball.contact_monitor = true
+	ball.max_contacts_reported = 3
+	
 	var phys_mat = PhysicsMaterial.new(); phys_mat.bounce = ball_bounce; phys_mat.friction = 0.05
 	ball.physics_material_override = phys_mat; ball.mass = ball_mass; ball.gravity_scale = ball_gravity_scale
 	ball.linear_damp = 0.8; ball.angular_damp = 0.8
 
 	var col = CollisionShape2D.new(); var circle_shape = CircleShape2D.new()
 	circle_shape.radius = ball_radius; col.shape = circle_shape; ball.add_child(col)
+
+	# 💡 監聽碰撞事件，觸發音效
+	ball.body_entered.connect(func(_body):
+		if AudioManager and AudioManager.has_method("play_peg_bounce"):
+			AudioManager.play_peg_bounce()
+	)
 
 	if egg_textures.size() > 0:
 		var picked_tex = egg_textures.pick_random()
@@ -546,19 +577,19 @@ func _draw() -> void:
 		if peg_outline_width > 0.0: draw_circle(peg.position, peg_radius + peg_outline_width, peg_outline_color)
 		draw_circle(peg.position, peg_radius, peg_color)
 
-	# 獨立特效繪製
-	fx_mgr.draw_effects(self, rule_mgr.ball_style_type, ball_radius, time_sec)
+	# 獨立特效與殘影繪製 (傳入 egg_ball_scale 放大倍率)
+	fx_mgr.draw_effects(self, rule_mgr.ball_style_type, ball_radius, time_sec, egg_ball_scale)
 
-	# 彈珠本體
+	# 彈珠本體 (套用 egg_ball_scale 放大倍率)
 	for ball in active_balls:
 		if is_instance_valid(ball):
 			if rule_mgr.ball_style_type in [1, 2]:
-				var ball_size = Vector2(ball_radius * 2.0, ball_radius * 2.0)
+				var ball_size = Vector2(ball_radius * 2.0 * egg_ball_scale, ball_radius * 2.0 * egg_ball_scale)
 				var fallback_tex: Texture2D = egg_textures[0] if egg_textures.size() > 0 else null
 				var b_tex: Texture2D = ball_texture_map.get(ball, fallback_tex)
 				draw_set_transform(ball.position, ball.rotation, Vector2.ONE)
 				if b_tex: draw_texture_rect(b_tex, Rect2(-ball_size / 2.0, ball_size), false)
-				else: draw_circle(Vector2.ZERO, ball_radius, Color("#8D6E63"))
+				else: draw_circle(Vector2.ZERO, ball_radius * egg_ball_scale, Color("#8D6E63"))
 				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 			elif rule_mgr.ball_style_type == 3:
 				var current_hue = fmod(time_sec * 0.6 + ball.get_instance_id() * 0.1, 1.0)

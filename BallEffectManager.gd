@@ -44,18 +44,18 @@ func process_effects(delta: float, active_balls: Array[RigidBody2D], ball_style_
 				trail.append(ball.position)
 				if trail.size() > rainbow_trail_length: trail.pop_front()
 
-func draw_effects(canvas: CanvasItem, ball_style_type: int, ball_radius: float, time_sec: float) -> void:
-	# 繪製幻影殘影
+func draw_effects(canvas: CanvasItem, ball_style_type: int, ball_radius: float, time_sec: float, egg_scale: float = 1.0) -> void:
+	# 繪製幻影殘影 (套用 egg_scale 放大係數)
 	if ball_style_type == 2:
 		for g in phantom_ghosts:
 			var alpha_ratio = clamp(g["life"] / g["max_life"], 0.0, 1.0) * 0.45
-			var ball_size = Vector2(ball_radius * 2.0, ball_radius * 2.0)
+			var ball_size = Vector2(ball_radius * 2.0 * egg_scale, ball_radius * 2.0 * egg_scale)
 			var ghost_tex: Texture2D = g.get("tex", null)
 			canvas.draw_set_transform(g["pos"], g["rot"], Vector2.ONE)
 			if ghost_tex:
 				canvas.draw_texture_rect(ghost_tex, Rect2(-ball_size / 2.0, ball_size), false, Color(1, 1, 1, alpha_ratio))
 			else:
-				canvas.draw_circle(Vector2.ZERO, ball_radius, Color(0.55, 0.43, 0.39, alpha_ratio))
+				canvas.draw_circle(Vector2.ZERO, ball_radius * egg_scale, Color(0.55, 0.43, 0.39, alpha_ratio))
 			canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 	# 繪製彩虹拖尾

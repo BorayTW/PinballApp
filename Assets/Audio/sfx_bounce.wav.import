@@ -2,13 +2,13 @@
 
 importer="wav"
 type="AudioStreamWAV"
-uid="uid://bht22ru504uaq"
-path="res://.godot/imported/sfx_win.wav-c1ffde99d78edba806a49b6b5b8ff8ab.sample"
+uid="uid://capminai17130"
+path="res://.godot/imported/sfx_bounce.wav-0f433399adab78d52d2c837c42e1bc77.sample"
 
 [deps]
 
-source_file="res://Assets/Audio/sfx_win.wav"
-dest_files=["res://.godot/imported/sfx_win.wav-c1ffde99d78edba806a49b6b5b8ff8ab.sample"]
+source_file="res://Assets/Audio/sfx_bounce.wav"
+dest_files=["res://.godot/imported/sfx_bounce.wav-0f433399adab78d52d2c837c42e1bc77.sample"]
 
 [params]
 
