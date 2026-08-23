@@ -1,7 +1,7 @@
 extends Control
 
 # ==========================================
-# ⚙️ 可調整參數區 (Inspector 面板可直接選色)
+# ⚙️ 可調整參數區 (Inspector 面板可直接選色與微調)
 # ==========================================
 @export_group("系統與預設字體大小")
 @export var default_ui_font_size: int = 18          # 一般 UI 按鈕與選單預設大小
@@ -29,7 +29,7 @@ extends Control
 @export var slot_shake_speed: float = 15.0          # 統一文字晃動速度 (Hz)
 
 @export_group("彈珠樣式與特效 (Ball Style)")
-@export var egg_ball_scale: float = 2              # 滷蛋彈珠圖片顯示放大倍率
+@export var egg_ball_scale: float = 2.0             # 滷蛋彈珠圖片顯示放大倍率
 @export var egg_folder_path: String = "res://Assets/EggBall/" # 滷蛋圖庫資料夾路徑
 
 @export_group("彈珠台尺寸與位置 (Board Size)")
@@ -456,8 +456,8 @@ func _generate_pegs() -> void:
 		for c in range(cols_in_row):
 			var peg_x = (center_x - board_width / 2.0) + spacing_x * (c + 1) + offset_x
 			var peg_y = start_y + spacing_y * r
-			var peg = RigidBody2D.new() # 或者 StaticBody2D
-			peg.freeze = true # 設為靜態物理
+			var peg = RigidBody2D.new()
+			peg.freeze = true
 			peg.position = Vector2(peg_x, peg_y)
 			peg.max_contacts_reported = 3
 			peg.contact_monitor = true
@@ -473,7 +473,6 @@ func _generate_pegs() -> void:
 			phys_mat.friction = 0.1
 			peg.physics_material_override = phys_mat
 
-			# 監聽彈珠撞擊釘子事件並播放音效
 			peg.body_entered.connect(func(_body):
 				if AudioManager: AudioManager.play_peg_bounce()
 			)
@@ -508,8 +507,6 @@ func _on_launch_button_pressed() -> void:
 	if remaining_ball_count <= 0: launch_button.disabled = true
 
 	var ball = RigidBody2D.new()
-	
-	# 💡 開啟碰撞監聽 (使彈珠碰撞釘子或其它彈珠時能發射訊號)
 	ball.contact_monitor = true
 	ball.max_contacts_reported = 3
 	
@@ -520,7 +517,6 @@ func _on_launch_button_pressed() -> void:
 	var col = CollisionShape2D.new(); var circle_shape = CircleShape2D.new()
 	circle_shape.radius = ball_radius; col.shape = circle_shape; ball.add_child(col)
 
-	# 💡 監聽碰撞事件，觸發音效
 	ball.body_entered.connect(func(_body):
 		if AudioManager and AudioManager.has_method("play_peg_bounce"):
 			AudioManager.play_peg_bounce()
@@ -577,10 +573,8 @@ func _draw() -> void:
 		if peg_outline_width > 0.0: draw_circle(peg.position, peg_radius + peg_outline_width, peg_outline_color)
 		draw_circle(peg.position, peg_radius, peg_color)
 
-	# 獨立特效與殘影繪製 (傳入 egg_ball_scale 放大倍率)
 	fx_mgr.draw_effects(self, rule_mgr.ball_style_type, ball_radius, time_sec, egg_ball_scale)
 
-	# 彈珠本體 (套用 egg_ball_scale 放大倍率)
 	for ball in active_balls:
 		if is_instance_valid(ball):
 			if rule_mgr.ball_style_type in [1, 2]:
@@ -598,7 +592,6 @@ func _draw() -> void:
 				draw_circle(ball.position, ball_radius, fire_ball_color)
 			else: draw_circle(ball.position, ball_radius, ball_color)
 
-	# 獎項小格子
 	var current_count = max(1, rule_mgr.prize_list.size())
 	var slot_width = board_width / current_count
 	var bottom_y = board_top_margin + board_height
