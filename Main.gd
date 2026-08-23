@@ -170,6 +170,7 @@ func _apply_loaded_settings() -> void:
 	slot_font_slider.value = rule_mgr.slot_font_size
 	sound_slider.value = rule_mgr.sound_volume
 	sound_label.text = "遊戲音效: " + str(rule_mgr.sound_volume)
+	if AudioManager: AudioManager.set_volume(rule_mgr.sound_volume)
 	slot_effect_check.button_pressed = rule_mgr.enable_slot_effects
 	ball_style_option.select(rule_mgr.ball_style_type)
 	ball_count_input.text = str(rule_mgr.total_ball_count)
@@ -182,17 +183,27 @@ func _load_egg_textures() -> void:
 			dir.list_dir_begin()
 			var file_name = dir.get_next()
 			var loaded_files: Array[String] = []
+			
 			while file_name != "":
-				if not dir.current_is_dir() and (file_name.ends_with(".png") or file_name.ends_with(".png.remap")):
-					var clean_name = file_name.replace(".remap", "")
-					if not clean_name in loaded_files: loaded_files.append(clean_name)
+				if not dir.current_is_dir():
+					# 💡 強制清除 Godot APK 打包後自動產生的副檔名字尾
+					var clean_name = file_name.replace(".remap", "").replace(".import", "")
+					if clean_name.ends_with(".png") or clean_name.ends_with(".jpg"):
+						if not clean_name in loaded_files:
+							loaded_files.append(clean_name)
 				file_name = dir.get_next()
+			dir.list_dir_end()
+			
 			loaded_files.sort()
 			for f in loaded_files:
-				var tex = load(egg_folder_path + f)
-				if tex: egg_textures.append(tex)
+				var full_path = egg_folder_path.path_join(f)
+				var tex = load(full_path) as Texture2D
+				if tex and not egg_textures.has(tex):
+					egg_textures.append(tex)
+	
+	# 後備防呆單張貼圖
 	if egg_textures.size() == 0 and ResourceLoader.exists("res://egg_ball.png"):
-		var single_tex = load("res://egg_ball.png")
+		var single_tex = load("res://egg_ball.png") as Texture2D
 		if single_tex: egg_textures.append(single_tex)
 
 func _reset_mascot_to_default() -> void:
