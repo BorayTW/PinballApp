@@ -6,8 +6,8 @@ extends Node
 # ==========================================
 
 # 💡 請填入你的 GitHub 帳號與倉庫名稱
-@export var github_username: String = "YourUsername" # 替換為你的 GitHub 帳號
-@export var github_repo: String = "YourRepoName"     # 替換為你的 Repository 名稱
+@export var github_username: String = "BorayTW" # 替換為你的 GitHub 帳號
+@export var github_repo: String = "PinballApp"     # 替換為你的 Repository 名稱
 
 var http_request: HTTPRequest
 var download_request: HTTPRequest

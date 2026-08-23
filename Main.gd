@@ -59,6 +59,7 @@ extends Control
 # --- 內部模組與狀態 ---
 var rule_mgr: GameRuleManager = GameRuleManager.new()
 var fx_mgr: BallEffectManager = BallEffectManager.new()
+var update_mgr: UpdateManager = UpdateManager.new()
 
 var remaining_ball_count: int = 10
 var is_initializing: bool = true
@@ -120,7 +121,7 @@ var launch_timer: float = 0.0
 
 func _ready() -> void:
 	is_initializing = true
-	add_child(rule_mgr); add_child(fx_mgr)
+	add_child(rule_mgr); add_child(fx_mgr); add_child(update_mgr)
 	
 	if ResourceLoader.exists("res://NotoSansTC-VariableFont_wght.ttf"):
 		custom_font = load("res://NotoSansTC-VariableFont_wght.ttf")
@@ -163,6 +164,12 @@ func _ready() -> void:
 
 	var view_size = get_viewport_rect().size
 	ball_spawner.position = Vector2(view_size.x / 2.0, board_top_margin + 20)
+	
+	# 💡 GitHub 在線更新檢查啟動
+	update_mgr.github_username = "BorayTW"
+	update_mgr.github_repo = "PinballApp"
+	update_mgr.check_for_updates()
+
 	is_initializing = false
 
 func _apply_loaded_settings() -> void:
@@ -170,6 +177,7 @@ func _apply_loaded_settings() -> void:
 	slot_font_slider.value = rule_mgr.slot_font_size
 	sound_slider.value = rule_mgr.sound_volume
 	sound_label.text = "遊戲音效: " + str(rule_mgr.sound_volume)
+	if AudioManager: AudioManager.set_volume(rule_mgr.sound_volume)
 	slot_effect_check.button_pressed = rule_mgr.enable_slot_effects
 	ball_style_option.select(rule_mgr.ball_style_type)
 	ball_count_input.text = str(rule_mgr.total_ball_count)
@@ -192,7 +200,7 @@ func _load_egg_textures() -> void:
 				var tex = load(egg_folder_path + f)
 				if tex: egg_textures.append(tex)
 	if egg_textures.size() == 0 and ResourceLoader.exists("res://egg_ball.png"):
-		var single_tex = load("res://egg_ball.png")
+		var single_tex = load("res://egg_ball.png") as Texture2D
 		if single_tex: egg_textures.append(single_tex)
 
 func _reset_mascot_to_default() -> void:
