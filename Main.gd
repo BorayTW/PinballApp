@@ -4,43 +4,51 @@ extends Control
 # ⚙️ 可調整參數區 (Inspector 面板可直接選色與微調)
 # ==========================================
 @export_group("系統與預設字體大小")
-@export var default_ui_font_size: int = 18          # 一般 UI 按鈕與選單預設大小
-@export var default_slot_font_size: int = 12        # 獎品區文字預設大小
+@export var default_ui_font_size: int = 20          # 一般 UI 按鈕與選單預設大小
+@export var default_slot_font_size: int = 42        # 獎品區文字預設大小
 @export var item_list_font_offset: int = -4         # 獎項列表字體縮放偏移量
+
+@export_group("畫面設定 - 字體 Bar 上下限設定")
+@export var ui_font_min: float = 18.0               # UI 字體最小值
+@export var ui_font_max: float = 40.0               # UI 字體最大值
+@export var slot_font_min: float = 16.0             # 獎品區字體最小值
+@export var slot_font_max: float = 50.0             # 獎品區字體最大值
 
 @export_group("色彩與視覺設定 (Colors & Visuals)")
 @export var bg_color_palette: Array[Color] = [
 	Color("#1F242E"), Color("#14141A"), Color("#2E1F33"),
 	Color("#1A332E"), Color("#382424"), Color("#404047")
 ]
-@export var board_bg_darken_factor: float = 0.25    # 彈珠台內部背景自動加深/變亮係數
+@export var board_bg_darken_factor: float = -0.08    # 彈珠台內部背景自動加深/變亮係數
 @export var board_border_color: Color = Color("cccccc") # 彈珠台邊框顏色
 @export var peg_color: Color = Color("ffd700")          # 釘子填滿顏色
 @export var peg_outline_color: Color = Color("8b6508")  # 釘子描邊顏色
-@export var peg_outline_width: float = 2.0              # 釘子描邊粗細
+@export var peg_outline_width: float = 0.0              # 釘子描邊粗細
 @export var ball_color: Color = Color("1e90ff")         # 彈珠顏色
 @export var fire_ball_color: Color = Color("#FF3D00")    # 火焰彈珠專用球體顏色
 
 @export_group("獎品區特效與色彩 (Slot FX)")
-@export var slot_outline_width: int = 3             # 獎品區文字描邊厚度
+@export var slot_outline_width: int = 15             # 獎品區文字描邊厚度
 @export var slot_color_normal: Color = Color("#FFFFFF")   # 無彈珠顏色 (白色)
-@export var slot_color_single: Color = Color("#FFF59D")   # 1顆彈珠顏色 (淡黃色)
-@export var slot_color_multiple: Color = Color("#00E5FF") # 2顆以上彈珠顏色 (亮青色)
-@export var slot_shake_speed: float = 15.0          # 統一文字晃動速度 (Hz)
+@export var slot_color_single: Color = Color("#ffeb3a")   # 1顆彈珠顏色 (淡黃色)
+@export var slot_color_multiple: Color = Color("#00E5FF") # 2顆彈珠顏色 (亮青色)
+@export var slot_color_triple: Color = Color("#E040FB")   # 3顆彈珠顏色 (淡紫色)
+@export var slot_color_quad: Color = Color("#FF1744")     # 4顆以上彈珠顏色 (亮紅色)
+@export var slot_shake_speed: float = 10.0          # 統一文字晃動速度 (Hz)
 
 @export_group("彈珠樣式與特效 (Ball Style)")
 @export var egg_ball_scale: float = 2.0             # 滷蛋彈珠圖片顯示放大倍率
 @export var egg_folder_path: String = "res://Assets/EggBall/" # 滷蛋圖庫資料夾路徑
 
 @export_group("彈珠台尺寸與位置 (Board Size)")
-@export var board_width: float = 800.0     # 彈珠台寬度
-@export var board_height: float = 520.0    # 彈珠台高度
-@export var board_top_margin: float = 60.0 # 全域頂部留白距離
+@export var board_width: float = 720.0     # 彈珠台寬度
+@export var board_height: float = 560.0    # 彈珠台高度
+@export var board_top_margin: float = 40.0 # 全域頂部留白距離
 
 @export_group("釘子與間距 (Pegs)")
 @export var peg_rows: int = 5               # 釘子列數
-@export var peg_cols: int = 15              # 釘子行數
-@export var peg_radius: float = 8.0         # 釘子半徑大小
+@export var peg_cols: int = 11              # 釘子行數
+@export var peg_radius: float = 10.0         # 釘子半徑大小
 @export var peg_bounce: float = 0.7         # 釘子彈性 (0.0~1.0)
 @export var peg_top_padding: float = 120.0  # 上邊框到最上排釘子的距離
 @export var peg_bottom_padding: float = 80.0# 最下排釘子到獎項區的距離
@@ -49,12 +57,12 @@ extends Control
 @export var slot_height: float = 70.0       # 獨立小格子的高度
 
 @export_group("彈珠與發射機制 (Ball & Launch)")
-@export var ball_radius: float = 12.0       # 彈珠半徑
+@export var ball_radius: float = 14.0       # 彈珠半徑
 @export var ball_bounce: float = 0.6        # 彈珠彈性
 @export var ball_mass: float = 1.0          # 彈珠質量
 @export var ball_gravity_scale: float = 1.2 # 重力倍率
-@export var spawn_x_offset: float = 15.0    # 發射初始位置隨機 X 軸偏移範圍
-@export var launch_cooldown: float = 0.2    # 最短發射間隔時間 (秒)
+@export var spawn_x_offset: float = 130.0    # 發射初始位置隨機 X 軸偏移範圍
+@export var launch_cooldown: float = 0.15    # 最短發射間隔時間 (秒)
 
 # --- 內部模組與狀態 ---
 var rule_mgr: GameRuleManager = GameRuleManager.new()
@@ -106,7 +114,9 @@ var ball_texture_map: Dictionary = {}
 @onready var ball_count_input: LineEdit = $UI/SettingsPanel/VBox/ContentHBox/RightVBox/BallCountHBox/BallCountInput
 
 @onready var bg_color_hbox: HBoxContainer = $UI/DisplayPanel/VBox/BGColorHBox
+@onready var ui_font_label: Label = $UI/DisplayPanel/VBox/UIFontLabel
 @onready var ui_font_slider: HSlider = $UI/DisplayPanel/VBox/UIFontSlider
+@onready var slot_font_label: Label = $UI/DisplayPanel/VBox/SlotFontLabel
 @onready var slot_font_slider: HSlider = $UI/DisplayPanel/VBox/SlotFontSlider
 @onready var sound_label: Label = $UI/DisplayPanel/VBox/SoundLabel
 @onready var sound_slider: HSlider = $UI/DisplayPanel/VBox/SoundSlider
@@ -130,6 +140,13 @@ func _ready() -> void:
 	
 	var default_bg = bg_color_palette[0] if bg_color_palette.size() > 0 else Color("#1F242E")
 	rule_mgr.load_settings(default_bg)
+
+	# ⚙️ 初始化拉條上下限
+	ui_font_slider.min_value = ui_font_min
+	ui_font_slider.max_value = ui_font_max
+	slot_font_slider.min_value = slot_font_min
+	slot_font_slider.max_value = slot_font_max
+
 	_apply_loaded_settings()
 	
 	remaining_ball_count = rule_mgr.total_ball_count
@@ -168,8 +185,13 @@ func _ready() -> void:
 func _apply_loaded_settings() -> void:
 	ui_font_slider.value = rule_mgr.ui_font_size
 	slot_font_slider.value = rule_mgr.slot_font_size
-	sound_slider.value = rule_mgr.sound_volume
+	
+	# 更新 Label 數值顯示
+	ui_font_label.text = "一般 UI 按鈕與選單大小: " + str(rule_mgr.ui_font_size)
+	slot_font_label.text = "獎品區文字大小: " + str(rule_mgr.slot_font_size)
 	sound_label.text = "遊戲音效: " + str(rule_mgr.sound_volume)
+	
+	sound_slider.value = rule_mgr.sound_volume
 	if AudioManager: AudioManager.set_volume(rule_mgr.sound_volume)
 	slot_effect_check.button_pressed = rule_mgr.enable_slot_effects
 	ball_style_option.select(rule_mgr.ball_style_type)
@@ -186,7 +208,6 @@ func _load_egg_textures() -> void:
 			
 			while file_name != "":
 				if not dir.current_is_dir():
-					# 💡 強制清除 Godot APK 打包後自動產生的副檔名字尾
 					var clean_name = file_name.replace(".remap", "").replace(".import", "")
 					if clean_name.ends_with(".png") or clean_name.ends_with(".jpg"):
 						if not clean_name in loaded_files:
@@ -201,7 +222,6 @@ func _load_egg_textures() -> void:
 				if tex and not egg_textures.has(tex):
 					egg_textures.append(tex)
 	
-	# 後備防呆單張貼圖
 	if egg_textures.size() == 0 and ResourceLoader.exists("res://egg_ball.png"):
 		var single_tex = load("res://egg_ball.png") as Texture2D
 		if single_tex: egg_textures.append(single_tex)
@@ -357,11 +377,17 @@ func _update_action_buttons_state() -> void:
 
 func _on_ui_font_slider_value_changed(val: float) -> void:
 	if is_initializing: return
-	rule_mgr.ui_font_size = int(val); _update_ui_font_size(rule_mgr.ui_font_size); rule_mgr.save_settings()
+	rule_mgr.ui_font_size = int(val)
+	ui_font_label.text = "一般 UI 按鈕與選單大小: " + str(rule_mgr.ui_font_size)
+	_update_ui_font_size(rule_mgr.ui_font_size)
+	rule_mgr.save_settings()
 
 func _on_slot_font_slider_value_changed(val: float) -> void:
 	if is_initializing: return
-	rule_mgr.slot_font_size = int(val); queue_redraw(); rule_mgr.save_settings()
+	rule_mgr.slot_font_size = int(val)
+	slot_font_label.text = "獎品區文字大小: " + str(rule_mgr.slot_font_size)
+	queue_redraw()
+	rule_mgr.save_settings()
 
 func _on_sound_slider_value_changed(val: float) -> void:
 	rule_mgr.sound_volume = int(val)
@@ -379,8 +405,8 @@ func _update_ui_font_size(new_size: int) -> void:
 		$UI/SettingsPanel/VBox/ContentHBox/RightVBox/BallCountHBox/BallCountLabel,
 		ball_count_minus_button, ball_count_plus_button, ball_count_input,
 		$UI/SettingsPanel/VBox/CloseSettingsButton, $UI/DisplayPanel/VBox/Title,
-		$UI/DisplayPanel/VBox/BGColorLabel, $UI/DisplayPanel/VBox/UIFontLabel,
-		$UI/DisplayPanel/VBox/SlotFontLabel, sound_label,
+		$UI/DisplayPanel/VBox/BGColorLabel, ui_font_label,
+		slot_font_label, sound_label,
 		$UI/DisplayPanel/VBox/EffectHBox/SlotEffectCheck,
 		$UI/DisplayPanel/VBox/EffectHBox/BallStyleLabel, ball_style_option,
 		$UI/DisplayPanel/VBox/CloseDisplayButton, $UI/DeleteConfirmPanel/VBox/Title,
@@ -528,9 +554,12 @@ func _on_launch_button_pressed() -> void:
 	var col = CollisionShape2D.new(); var circle_shape = CircleShape2D.new()
 	circle_shape.radius = ball_radius; col.shape = circle_shape; ball.add_child(col)
 
+	# 💡 碰撞監聽：加上速度檢查 (linear_velocity > 20.0 px/s)
+	# 當多顆彈珠堆疊在狹小格子底端時 (速度很小)，會被自動攔截不觸發碰撞音效
 	ball.body_entered.connect(func(_body):
-		if AudioManager and AudioManager.has_method("play_peg_bounce"):
-			AudioManager.play_peg_bounce()
+		if is_instance_valid(ball) and ball.linear_velocity.length() > 20.0:
+			if AudioManager and AudioManager.has_method("play_peg_bounce"):
+				AudioManager.play_peg_bounce()
 	)
 
 	if egg_textures.size() > 0:
@@ -620,12 +649,26 @@ func _draw() -> void:
 			text_offset_y = sin(time_sec * slot_shake_speed) * 2.0
 			if balls_in_this_slot == 1:
 				text_color = slot_color_single; draw_font_size = roundi(rule_mgr.slot_font_size * 1.15)
-			else:
+			elif balls_in_this_slot == 2:
 				text_color = slot_color_multiple; draw_font_size = roundi(rule_mgr.slot_font_size * 1.25)
-				prize_name += " x" + str(balls_in_this_slot)
+			elif balls_in_this_slot == 3:
+				text_color = slot_color_triple; draw_font_size = roundi(rule_mgr.slot_font_size * 1.30)
+			else: # 4 個以上
+				text_color = slot_color_quad; draw_font_size = roundi(rule_mgr.slot_font_size * 1.35)
 
 		var text_pos = Vector2(slot_left + 2, bottom_y - 10 + text_offset_y)
-		if rule_mgr.enable_slot_effects and balls_in_this_slot > 0 and slot_outline_width > 0:
-			draw_string_outline(font_to_use, text_pos, prize_name, HORIZONTAL_ALIGNMENT_CENTER, slot_width - 4, draw_font_size, slot_outline_width, Color.BLACK)
 		
+		# 1. 獎品格內部的描邊與獎品名稱繪製 (維持乾淨不帶 x數量)
+		if slot_outline_width > 0:
+			draw_string_outline(font_to_use, text_pos, prize_name, HORIZONTAL_ALIGNMENT_CENTER, slot_width - 4, draw_font_size, slot_outline_width, Color.BLACK)
 		draw_string(font_to_use, text_pos, prize_name, HORIZONTAL_ALIGNMENT_CENTER, slot_width - 4, draw_font_size, text_color)
+
+		# 2. 多顆彈珠落入時，於「彈珠台底邊與按鈕中間的空白處」顯示不晃動的 x數量 提示
+		if balls_in_this_slot > 1:
+			var count_text = "x" + str(balls_in_this_slot)
+			var count_font_size = max(26, roundi(rule_mgr.slot_font_size * 0.85))
+			var count_pos = Vector2(slot_left + 2, bottom_y + count_font_size + 2) # 顯示於邊框下方
+			
+			if slot_outline_width > 0:
+				draw_string_outline(font_to_use, count_pos, count_text, HORIZONTAL_ALIGNMENT_CENTER, slot_width - 4, count_font_size, max(2, slot_outline_width * 0.6), Color.BLACK)
+			draw_string(font_to_use, count_pos, count_text, HORIZONTAL_ALIGNMENT_CENTER, slot_width - 4, count_font_size, text_color)

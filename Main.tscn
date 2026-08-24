@@ -39,7 +39,6 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_main")
-peg_bounce = 2.0
 
 [node name="Board" type="StaticBody2D" parent="."]
 
@@ -53,14 +52,14 @@ position = Vector2(640, 70)
 [node name="UI" type="CanvasLayer" parent="."]
 
 [node name="MascotRect" type="TextureRect" parent="UI"]
-anchors_preset = 4
-anchor_top = 0.5
-anchor_bottom = 0.5
-offset_left = 35.0
-offset_top = -100.0
-offset_right = 215.0
-offset_bottom = 80.0
-grow_vertical = 2
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -620.0
+offset_top = 299.0
+offset_right = -327.0
+offset_bottom = 592.0
+grow_horizontal = 2
 pivot_offset = Vector2(90, 90)
 expand_mode = 1
 stretch_mode = 5
@@ -83,36 +82,37 @@ custom_minimum_size = Vector2(0, 35)
 layout_mode = 2
 text = "退出遊戲"
 
-[node name="TopRightVBox" type="VBoxContainer" parent="UI"]
+[node name="TopRightVBox" type="HBoxContainer" parent="UI"]
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -120.0
+offset_left = -188.0
 offset_top = 20.0
 offset_right = -20.0
-offset_bottom = 110.0
+offset_bottom = 61.0
 grow_horizontal = 0
 theme_override_constants/separation = 10
+alignment = 2
 
 [node name="DisplaySettingsButton" type="Button" parent="UI/TopRightVBox"]
-custom_minimum_size = Vector2(0, 35)
+custom_minimum_size = Vector2(80, 0)
 layout_mode = 2
 text = "設定"
 
 [node name="SettingsButton" type="Button" parent="UI/TopRightVBox"]
-custom_minimum_size = Vector2(0, 35)
+custom_minimum_size = Vector2(80, 0)
 layout_mode = 2
 text = "獎品名單"
 
 [node name="ResultPanel" type="PanelContainer" parent="UI"]
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -190.0
-offset_top = 120.0
-offset_right = -20.0
-offset_bottom = 580.0
-grow_horizontal = 0
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = 385.0
+offset_top = 140.0
+offset_right = 611.0
+offset_bottom = 604.0
+grow_horizontal = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_log")
 
 [node name="VBox" type="VBoxContainer" parent="UI/ResultPanel"]
@@ -188,9 +188,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -170.0
-offset_top = -220.0
+offset_top = -259.0
 offset_right = 170.0
-offset_bottom = 220.0
+offset_bottom = 181.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
@@ -221,9 +221,9 @@ text = "UI 按鈕與選單大小"
 [node name="UIFontSlider" type="HSlider" parent="UI/DisplayPanel/VBox"]
 custom_minimum_size = Vector2(250, 0)
 layout_mode = 2
-min_value = 14.0
-max_value = 32.0
-value = 18.0
+min_value = 15.0
+max_value = 40.0
+value = 20.0
 
 [node name="SlotFontLabel" type="Label" parent="UI/DisplayPanel/VBox"]
 layout_mode = 2
@@ -232,9 +232,9 @@ text = "獎品區文字大小"
 [node name="SlotFontSlider" type="HSlider" parent="UI/DisplayPanel/VBox"]
 custom_minimum_size = Vector2(250, 0)
 layout_mode = 2
-min_value = 8.0
-max_value = 24.0
-value = 12.0
+min_value = 20.0
+max_value = 60.0
+value = 42.0
 
 [node name="SoundLabel" type="Label" parent="UI/DisplayPanel/VBox"]
 layout_mode = 2
@@ -257,7 +257,7 @@ text = "獎品區特效"
 
 [node name="BallStyleLabel" type="Label" parent="UI/DisplayPanel/VBox/EffectHBox"]
 layout_mode = 2
-text = "彈珠特效:"
+text = "   彈珠特效:"
 
 [node name="BallStyleOption" type="OptionButton" parent="UI/DisplayPanel/VBox/EffectHBox"]
 custom_minimum_size = Vector2(110, 32)
@@ -281,9 +281,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -310.0
-offset_top = -200.0
+offset_top = -248.0
 offset_right = 310.0
-offset_bottom = 200.0
+offset_bottom = 152.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")

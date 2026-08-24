@@ -5,7 +5,7 @@ extends Node
 # ==========================================
 @export_group("音效設定")
 @export var sound_volume: int = 100 # 音量大小 (0 ~ 100)
-@export var bounce_cooldown: float = 0.08 # 碰撞音效觸發最短間隔 (秒)，防止高頻發聲刺耳
+@export var bounce_cooldown: float = 0.12 # 拉長至 0.12 秒，大幅降低高頻疊加撞擊噪音[cite: 1]
 
 var sfx_bounce: AudioStream
 var sfx_slot: AudioStream
@@ -42,16 +42,16 @@ func set_volume(val: int) -> void:
 
 ## 彈珠撞擊釘子/彈珠互撞音效 (含防吵冷卻與變調機制)
 func play_peg_bounce() -> void:
-	if sound_volume <= 0 or not bounce_player.stream: return
+	if sound_volume <= 0 or not bounce_player or not bounce_player.stream: return
 	
 	var current_time = Time.get_ticks_msec() / 1000.0
 	if current_time - last_bounce_time >= bounce_cooldown:
 		last_bounce_time = current_time
-		bounce_player.pitch_scale = randf_range(0.88, 1.12) # 微幅音高隨機，聽起來更自然
+		bounce_player.pitch_scale = randf_range(0.88, 1.12) # 微幅音高隨機，聽起來更自然[cite: 1]
 		bounce_player.play()
 
 ## 落入獎項區中獎音效
 func play_slot_win() -> void:
-	if sound_volume <= 0 or not slot_player.stream: return
+	if sound_volume <= 0 or not slot_player or not slot_player.stream: return
 	slot_player.pitch_scale = randf_range(0.98, 1.02)
 	slot_player.play()

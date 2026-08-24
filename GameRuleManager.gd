@@ -7,23 +7,43 @@ extends Node
 const SAVE_PATH = "user://settings.cfg"
 const PRESETS_SAVE_PATH = "user://presets.cfg"
 
+# 💡 首次安裝 App 時自動寫入的內建預設名單
+var built_in_default_presets: Dictionary = {
+	"預設名單": [
+		"1點", "3點", "1點",
+		"2點", "1點", "1點",
+		"2點", "1點", "3點"
+	]
+}
+
 var prize_list: Array[String] = [
-	"特獎: 1000點",
-	"三獎: 100點",
-	"普獎: 10點",
-	"大獎: 500點",
-	"普獎: 10點",
-	"二獎: 200點"
+	"1點",
+	"3點",
+	"1點",
+	"2點",
+	"1點",
+	"1點",
+	"2點",
+	"1點",
+	"3點"
 ]
 
-var total_ball_count: int = 10
-var max_ball_count_limit: int = 99
-var ui_font_size: int = 18
-var slot_font_size: int = 12
+var total_ball_count: int = 5
+var max_ball_count_limit: int = 50
+var ui_font_size: int = 26
+var slot_font_size: int = 30
 var sound_volume: int = 100
 var current_bg_color: Color = Color("#1F242E")
 var enable_slot_effects: bool = true
 var ball_style_type: int = 0
+
+## 確保 presets.cfg 檔案存在，若是首次安裝則寫入內建預設名單
+func _ensure_presets_file_exists() -> void:
+	if not FileAccess.file_exists(PRESETS_SAVE_PATH):
+		var config = ConfigFile.new()
+		for preset_name in built_in_default_presets.keys():
+			config.set_value("presets", preset_name, built_in_default_presets[preset_name])
+		config.save(PRESETS_SAVE_PATH)
 
 func load_settings(default_bg: Color) -> void:
 	var config = ConfigFile.new()
@@ -55,6 +75,7 @@ func save_settings() -> void:
 	config.save(SAVE_PATH)
 
 func get_preset_names() -> Array[String]:
+	_ensure_presets_file_exists() # 檢查並初始化
 	var names: Array[String] = []
 	var config = ConfigFile.new()
 	if config.load(PRESETS_SAVE_PATH) == OK and config.has_section("presets"):
@@ -64,12 +85,14 @@ func get_preset_names() -> Array[String]:
 
 func save_preset(preset_name: String) -> void:
 	if preset_name == "" or prize_list.size() == 0: return
+	_ensure_presets_file_exists() # 檢查並初始化
 	var config = ConfigFile.new()
 	config.load(PRESETS_SAVE_PATH)
 	config.set_value("presets", preset_name, prize_list)
 	config.save(PRESETS_SAVE_PATH)
 
 func delete_preset(preset_name: String) -> bool:
+	_ensure_presets_file_exists() # 檢查並初始化
 	var config = ConfigFile.new()
 	if config.load(PRESETS_SAVE_PATH) == OK and config.has_section_key("presets", preset_name):
 		config.erase_section_key("presets", preset_name)
@@ -78,6 +101,7 @@ func delete_preset(preset_name: String) -> bool:
 	return false
 
 func load_preset(preset_name: String) -> bool:
+	_ensure_presets_file_exists() # 檢查並初始化
 	var config = ConfigFile.new()
 	if config.load(PRESETS_SAVE_PATH) == OK and config.has_section_key("presets", preset_name):
 		var loaded = config.get_value("presets", preset_name)

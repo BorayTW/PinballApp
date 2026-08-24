@@ -11,9 +11,10 @@ config_version=5
 [application]
 
 config/name="滷蛋彈珠台"
-config/version="0.1.3"
+config/version="1.0.0"
 run/main_scene="res://Main.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
+config/icon="uid://dg486hsw4hwtp"
 
 [autoload]
 
