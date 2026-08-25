@@ -255,6 +255,7 @@ func _setup_ball_style_option_ui() -> void:
 	ball_style_option.add_item("火焰彈珠")   # 4
 	ball_style_option.add_item("閃電彈珠")   # 5
 	ball_style_option.add_item("雷射彈珠")   # 6
+	ball_style_option.add_item("時空彈珠")   # 7
 
 # 💡 重構重點：將切換特效清理的工作丟回給特效總管
 func _on_ball_style_selected(idx: int) -> void:
