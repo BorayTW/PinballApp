@@ -5,7 +5,7 @@ extends Node
 # 🎆 彈珠特效與軌跡繪製管理器 (BallEffectManager.gd)
 # ==========================================
 @export_group("特效與殘影設定")
-@export var rainbow_trail_length: int = 30             # 彩虹拖尾長度
+@export var rainbow_trail_length: int = 60             # 彩虹拖尾長度
 @export var phantom_egg_spawn_interval: float = 0.08 # 殘影生成間隔 (秒)
 @export var phantom_egg_lifetime: float = 0.45       # 殘影壽命 (秒)
 
@@ -13,6 +13,8 @@ extends Node
 @export_range(0.0, 1.0) var fire_impact_chance: float = 0.4 # 碰撞觸發火焰機率 (0.0 ~ 1.0)
 @export var fire_impact_lifetime: float = 3.0              # 殘留火焰維持時間 (秒)
 @export var fire_impact_scale: float = 1.3                 # 殘留火焰大小倍率
+@export var fire_smoke_amount: int = 1                     # 殘留火焰冒煙粒子數量
+@export var fire_smoke_lifetime: float = 3.6               # 殘留火焰煙霧持續時間 (秒)
 
 @export_group("閃電彈珠特效設定")
 @export_range(0.0, 1.0) var lightning_impact_chance: float = 0.8 # 碰撞觸發電弧機率 (0.0 ~ 1.0)
@@ -23,12 +25,12 @@ extends Node
 @export var lightning_line_width: float = 2.5                    # 電弧線條粗細
 
 @export_group("🔴 雷射彈珠特效設定")
-@export_range(0.0, 1.0) var laser_impact_chance: float = 0.35 # 碰撞發射雷射機率 (50%)
+@export_range(0.0, 1.0) var laser_impact_chance: float = 0.35 # 碰撞發射雷射機率 (35%)
 @export var laser_max_bounces: int = 4                       # 雷射最大反彈次數
 @export var laser_max_distance: float = 600.0                # 雷射光束單段最大延伸距離
 @export var laser_lifetime: float = 0.52                     # 雷射光殘留/閃爍時間 (秒)
 @export var laser_color: Color = Color("#00FF66")            # 雷射主色 (高亮霓虹綠)
-@export var laser_light_color: Color = Color("#80FFAA")      # 第二組外層粒子淺色 (淺亮螢光綠)
+@export var laser_light_color: Color = Color("#80FFAA")      # 第二組外層粒子淺色
 @export var laser_line_width: float = 3.0                    # 雷射線條粗細
 
 @export_subgroup("第一組粒子流")
@@ -43,7 +45,7 @@ extends Node
 @export var laser_orbit_speed2: float = 12.0                 # 第二組環繞速度
 
 @export_group("🌌 時空彈珠特效設定")
-@export_range(0.0, 1.0) var chrono_impact_chance: float = 0.25 # 碰撞引發時空混亂機率 (預設 20%)
+@export_range(0.0, 1.0) var chrono_impact_chance: float = 0.25 # 碰撞引發時空混亂機率 (預設 25%)
 @export var chrono_min_duration: float = 0.5                   # 時空混亂最短隱形時間 (秒)
 @export var chrono_max_duration: float = 1.2                   # 時空混亂最長隱形時間 (秒)
 @export var chrono_stars_count: int = 6                        # 本體內部星空點數量
@@ -51,7 +53,7 @@ extends Node
 @export var chrono_teleport_color: Color = Color("#7C4DFF")    # 傳送粒子顏色 (深紫/霓虹紫)
 @export var chrono_particle_amount: int = 16                   # 瞬移爆發粒子數量
 @export var chrono_afterimage_count: int = 5                   # 現身時鋪滿路徑的多重殘影數量
-@export var chrono_afterimage_lifetime: float = 0.25           # 多重殘影停留/淡出時間 (秒，預設 0.25 秒)
+@export var chrono_afterimage_lifetime: float = 0.25           # 多重殘影停留/淡出時間 (秒)
 
 # --- 內部資料快取結構 ---
 var ball_trails: Dictionary = {}        
@@ -59,20 +61,19 @@ var phantom_ghosts: Array[Dictionary] = []
 var phantom_spawn_timers: Dictionary = {} 
 
 var active_impact_flames: Array[CPUParticles2D] = []
+var active_impact_smokes: Array[CPUParticles2D] = []
 var active_impact_lightnings: Array[Dictionary] = []
 var active_impact_lasers: Array[Dictionary] = []
 
-# 時空彈珠混亂字典 { ball: RigidBody2D -> { "ghost_pos": Vector2, "timer": float } }
+# 時空彈珠快取
 var chrono_glitch_data: Dictionary = {}
-
-# 多重現身殘影陣列 [ { "pos": Vector2, "life": float, "max_life": float, "seed_id": int } ]
 var active_chrono_afterimages: Array[Dictionary] = []
 
 # ==========================================
 # 🚀 1. 每影格動態計算與歷史軌跡更新
 # ==========================================
 func process_effects(delta: float, active_balls: Array[RigidBody2D], ball_style_type: int, ball_texture_map: Dictionary) -> void:
-	# A. 幻影滷蛋殘影採樣 (模式 2)
+	# A. 幻影滷蛋殘影採樣
 	if ball_style_type == 2:
 		for ball in active_balls:
 			if is_instance_valid(ball) and ball.linear_velocity.length() > 15.0:
@@ -94,7 +95,7 @@ func process_effects(delta: float, active_balls: Array[RigidBody2D], ball_style_
 				phantom_ghosts.remove_at(i)
 			i -= 1
 
-	# B. 彩虹軌跡採樣 (模式 3)
+	# B. 彩虹軌跡採樣
 	if ball_style_type == 3:
 		for ball in active_balls:
 			if is_instance_valid(ball):
@@ -105,7 +106,7 @@ func process_effects(delta: float, active_balls: Array[RigidBody2D], ball_style_
 				if trail.size() > rainbow_trail_length:
 					trail.pop_front()
 
-	# C. 清理過期/停止發射的火焰粒子
+	# C. 清理火焰與煙霧粒子
 	var f_idx = active_impact_flames.size() - 1
 	while f_idx >= 0:
 		var flame = active_impact_flames[f_idx]
@@ -113,7 +114,14 @@ func process_effects(delta: float, active_balls: Array[RigidBody2D], ball_style_
 			active_impact_flames.remove_at(f_idx)
 		f_idx -= 1
 
-	# D. 更新並清理碰撞鋸齒電弧壽命
+	var s_idx = active_impact_smokes.size() - 1
+	while s_idx >= 0:
+		var smoke = active_impact_smokes[s_idx]
+		if not is_instance_valid(smoke) or not smoke.emitting:
+			active_impact_smokes.remove_at(s_idx)
+		s_idx -= 1
+
+	# D. 清理電弧
 	var l_idx = active_impact_lightnings.size() - 1
 	while l_idx >= 0:
 		var lightning = active_impact_lightnings[l_idx]
@@ -122,7 +130,7 @@ func process_effects(delta: float, active_balls: Array[RigidBody2D], ball_style_
 			active_impact_lightnings.remove_at(l_idx)
 		l_idx -= 1
 
-	# E. 更新並清理雷射光殘留壽命
+	# E. 清理雷射光
 	var laser_idx = active_impact_lasers.size() - 1
 	while laser_idx >= 0:
 		var laser = active_impact_lasers[laser_idx]
@@ -131,7 +139,7 @@ func process_effects(delta: float, active_balls: Array[RigidBody2D], ball_style_
 			active_impact_lasers.remove_at(laser_idx)
 		laser_idx -= 1
 
-	# 🌌 F. 時空混亂倒數計時與恢復處理
+	# 🌌 F. 時空混亂計時與恢復
 	for ball in chrono_glitch_data.keys():
 		if not is_instance_valid(ball):
 			chrono_glitch_data.erase(ball)
@@ -141,7 +149,6 @@ func process_effects(delta: float, active_balls: Array[RigidBody2D], ball_style_
 		data["timer"] -= delta
 		
 		if data["timer"] <= 0:
-			# 時間到：取消混亂，在本體與殘影間鋪滿多重殘影並釋放現身傳送粒子
 			var current_parent = ball.get_parent()
 			var ghost_pos: Vector2 = data["ghost_pos"]
 			var current_pos: Vector2 = ball.global_position
@@ -149,7 +156,6 @@ func process_effects(delta: float, active_balls: Array[RigidBody2D], ball_style_
 			if current_parent:
 				_spawn_teleport_burst(current_parent, current_pos)
 			
-			# 瞬間鋪滿多重現身殘影 (同時出現，停留 chrono_afterimage_lifetime 秒)
 			for step in range(chrono_afterimage_count + 1):
 				var lerp_ratio = float(step) / float(max(1, chrono_afterimage_count))
 				var afterimage_pos = ghost_pos.lerp(current_pos, lerp_ratio)
@@ -162,7 +168,7 @@ func process_effects(delta: float, active_balls: Array[RigidBody2D], ball_style_
 			
 			chrono_glitch_data.erase(ball)
 
-	# 🌌 G. 更新並淡出多重現身殘影壽命
+	# 🌌 G. 淡出時空多重殘影
 	var afterimage_idx = active_chrono_afterimages.size() - 1
 	while afterimage_idx >= 0:
 		var afterimage = active_chrono_afterimages[afterimage_idx]
@@ -203,9 +209,10 @@ func on_ball_impact(parent_node: Node, ball: RigidBody2D, contact_pos: Vector2, 
 		6: spawn_impact_laser(parent_node, contact_pos)        # 🔴 雷射彈珠碰撞
 		7: spawn_impact_chrono(parent_node, ball)              # 🌌 時空彈珠碰撞
 
-# 生成原地方向燃燒火焰粒子
+# 生成火焰與隨之產生的濃煙
 func spawn_impact_fire(parent_node: Node, contact_pos: Vector2) -> void:
 	if randf() > fire_impact_chance: return
+	
 	var flame = CPUParticles2D.new()
 	flame.position = contact_pos
 	flame.amount = 20; flame.lifetime = 0.6; flame.one_shot = false; flame.explosiveness = 0.1
@@ -229,7 +236,34 @@ func spawn_impact_fire(parent_node: Node, contact_pos: Vector2) -> void:
 	tween.tween_interval(1.0)
 	tween.tween_callback(flame.queue_free)
 
-# 生成從碰撞接點延伸的鋸齒閃電電弧
+	if fire_smoke_amount > 0:
+		var smoke = CPUParticles2D.new()
+		smoke.position = contact_pos + Vector2(0, -4.0 * fire_impact_scale)
+		smoke.amount = fire_smoke_amount
+		smoke.lifetime = 0.8
+		smoke.one_shot = false
+		smoke.explosiveness = 0.05
+		smoke.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+		smoke.emission_sphere_radius = 2.0 * fire_impact_scale
+		smoke.direction = Vector2(0, -1)
+		smoke.spread = 30.0
+		smoke.gravity = Vector2(0, -30)
+		smoke.initial_velocity_min = 8.0 * fire_impact_scale
+		smoke.initial_velocity_max = 20.0 * fire_impact_scale
+		smoke.scale_amount_min = 2.5 * fire_impact_scale
+		smoke.scale_amount_max = 5.5 * fire_impact_scale
+		smoke.color = Color(0.5, 0.5, 0.5, 0.45)
+
+		parent_node.add_child(smoke)
+		active_impact_smokes.append(smoke)
+
+		var smoke_tween = smoke.create_tween()
+		smoke_tween.tween_interval(fire_smoke_lifetime)
+		smoke_tween.tween_callback(smoke.set_emitting.bind(false))
+		smoke_tween.tween_interval(1.0)
+		smoke_tween.tween_callback(smoke.queue_free)
+
+# 生成閃電電弧
 func spawn_impact_lightning(contact_pos: Vector2) -> void:
 	if randf() > lightning_impact_chance: return
 	var arc_count = randi_range(1, 2)
@@ -252,7 +286,7 @@ func spawn_impact_lightning(contact_pos: Vector2) -> void:
 			"points": pts, "life": lightning_impact_lifetime, "max_life": lightning_impact_lifetime
 		})
 
-# 🔴 機率性瞬間計算光學反彈路徑
+# 🔴 雷射反彈
 func spawn_impact_laser(parent_node: Node, contact_pos: Vector2) -> void:
 	if randf() > laser_impact_chance: return
 
@@ -286,23 +320,21 @@ func spawn_impact_laser(parent_node: Node, contact_pos: Vector2) -> void:
 		"max_life": laser_lifetime
 	})
 
-# 🌌 20% 機率觸發時空混亂：以彈珠中心（球體位置）原地留下殘影，本體隱形，並引爆傳送粒子
+# 🌌 時空混亂
 func spawn_impact_chrono(parent_node: Node, ball: RigidBody2D) -> void:
 	if randf() > chrono_impact_chance: return
-	if chrono_glitch_data.has(ball): return # 避開重複進入混亂狀態
+	if chrono_glitch_data.has(ball): return
 
 	var duration = randf_range(chrono_min_duration, chrono_max_duration)
-	var spawn_pos = ball.global_position # 💡 以彈珠中心（球體位置）原地生成殘影，杜絕穿牆與非連貫感
+	var spawn_pos = ball.global_position
 
 	chrono_glitch_data[ball] = {
 		"ghost_pos": spawn_pos,
 		"timer": duration
 	}
 
-	# 在彈珠原地中心爆發第一道「殘留傳送粒子」
 	_spawn_teleport_burst(parent_node, spawn_pos)
 
-# 🌌 傳送粒子爆發輔助函式
 func _spawn_teleport_burst(parent_node: Node, burst_pos: Vector2) -> void:
 	var particles = CPUParticles2D.new()
 	particles.position = burst_pos
@@ -358,14 +390,14 @@ func draw_all_ball_visuals(canvas: CanvasItem, active_balls: Array[RigidBody2D],
 			if is_instance_valid(ball):
 				_draw_ball_electric_ring(canvas, ball.position, ball_radius, time_sec, ball.get_instance_id())
 
-	# 🌌 D. 繪製時空彈珠留在原地的半透明殘影
+	# 🌌 D. 繪製時空彈珠殘影
 	if ball_style_type == 7:
 		for ball in chrono_glitch_data.keys():
 			if is_instance_valid(ball):
 				var ghost_pos = chrono_glitch_data[ball]["ghost_pos"]
 				_draw_chrono_ghost_ball(canvas, ghost_pos, ball_radius, time_sec, ball.get_instance_id(), 0.45)
 
-	# 🌌 D2. 繪製恢復狀態時鋪滿路徑的多重淡出殘影
+	# 🌌 D2. 繪製時空多重殘影
 	for afterimage in active_chrono_afterimages:
 		var alpha_ratio = clamp(afterimage["life"] / afterimage["max_life"], 0.0, 1.0) * 0.5
 		_draw_chrono_ghost_ball(canvas, afterimage["pos"], ball_radius, time_sec, afterimage["seed_id"], alpha_ratio)
@@ -373,7 +405,6 @@ func draw_all_ball_visuals(canvas: CanvasItem, active_balls: Array[RigidBody2D],
 	# E. 繪製所有彈珠本體
 	for ball in active_balls:
 		if is_instance_valid(ball):
-			# 若彈珠處於時空混亂狀態，本體完全透明不繪製
 			if ball_style_type == 7 and chrono_glitch_data.has(ball):
 				continue
 
@@ -393,7 +424,7 @@ func draw_all_ball_visuals(canvas: CanvasItem, active_balls: Array[RigidBody2D],
 				canvas.draw_circle(ball.position, ball_radius, lightning_ball_color)
 			elif ball_style_type == 6: # 雷射本體
 				_draw_laser_ball(canvas, ball.position, ball_radius, time_sec, ball.get_instance_id())
-			elif ball_style_type == 7: # 🌌 時空彈珠本體 (高亮外環 + 深藍中心 + 星空點)
+			elif ball_style_type == 7: # 🌌 時空彈珠本體
 				_draw_chrono_ball(canvas, ball.position, ball_radius, time_sec, ball.get_instance_id(), 1.0)
 			else: # 普通彈珠 (0)
 				canvas.draw_circle(ball.position, ball_radius, ball_color)
@@ -454,14 +485,12 @@ func _draw_laser_ball(canvas: CanvasItem, pos: Vector2, radius: float, time_sec:
 		var col = laser_light_color; col.a = alpha
 		canvas.draw_circle(p_pos, p_size, col)
 
-# 🌌 繪製時空彈珠本體 (高亮圈 -> 漸層深藍 -> 星空點)
+# 🌌 繪製時空彈珠本體
 func _draw_chrono_ball(canvas: CanvasItem, pos: Vector2, radius: float, time_sec: float, seed_id: int, alpha_multiplier: float = 1.0) -> void:
-	# 1. 外層高亮圈
 	var outer_color = chrono_glow_color
 	outer_color.a *= alpha_multiplier
 	canvas.draw_circle(pos, radius + 1.5, outer_color)
 
-	# 2. 中間向內漸層深藍色核心 (分多層疊加漸層效果)
 	var step_count = 4
 	for i in range(step_count, 0, -1):
 		var r_ratio = float(i) / float(step_count)
@@ -470,12 +499,10 @@ func _draw_chrono_ball(canvas: CanvasItem, pos: Vector2, radius: float, time_sec
 		layer_color.a *= alpha_multiplier
 		canvas.draw_circle(pos, current_r, layer_color)
 
-	# 3. 閃爍星空白點 (根據 seed_id 固定隨機分佈位置)
 	for i in range(chrono_stars_count):
 		var angle = float(seed_id * 11 + i * 137)
 		var dist = fmod(float(seed_id * 7 + i * 31), radius * 0.75)
 		var star_pos = pos + Vector2(cos(angle), sin(angle)) * dist
-		
 		var star_alpha = clamp(0.3 + sin(time_sec * 8.0 + i * 2.0) * 0.6, 0.1, 1.0) * alpha_multiplier
 		var star_color = Color(1.0, 1.0, 1.0, star_alpha)
 		canvas.draw_circle(star_pos, 1.2, star_color)
@@ -494,6 +521,11 @@ func clear_all(active_balls: Array[RigidBody2D]) -> void:
 	for f in active_impact_flames:
 		if is_instance_valid(f): f.queue_free()
 	active_impact_flames.clear()
+
+	for s in active_impact_smokes:
+		if is_instance_valid(s): s.queue_free()
+	active_impact_smokes.clear()
+
 	active_impact_lightnings.clear()
 	active_impact_lasers.clear()
 	chrono_glitch_data.clear()
