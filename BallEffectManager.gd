@@ -23,12 +23,12 @@ extends Node
 @export var lightning_line_width: float = 2.5                    # 電弧線條粗細
 
 @export_group("🔴 雷射彈珠特效設定")
-@export_range(0.0, 1.0) var laser_impact_chance: float = 0.50 # 碰撞發射雷射機率 (50%)
+@export_range(0.0, 1.0) var laser_impact_chance: float = 0.35 # 碰撞發射雷射機率 (50%)
 @export var laser_max_bounces: int = 4                       # 雷射最大反彈次數
 @export var laser_max_distance: float = 600.0                # 雷射光束單段最大延伸距離
-@export var laser_lifetime: float = 0.25                     # 雷射光殘留/閃爍時間 (秒)
-@export var laser_color: Color = Color("#FF0055")            # 雷射主色 (鮮紅/霓虹粉)
-@export var laser_light_color: Color = Color("#FF6699")      # 第二組外層粒子淺色
+@export var laser_lifetime: float = 0.52                     # 雷射光殘留/閃爍時間 (秒)
+@export var laser_color: Color = Color("#00FF66")            # 雷射主色 (高亮霓虹綠)
+@export var laser_light_color: Color = Color("#80FFAA")      # 第二組外層粒子淺色 (淺亮螢光綠)
 @export var laser_line_width: float = 3.0                    # 雷射線條粗細
 
 @export_subgroup("第一組粒子流")
