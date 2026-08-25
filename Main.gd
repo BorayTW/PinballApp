@@ -26,6 +26,7 @@ extends Control
 @export var peg_outline_width: float = 0.0              # 釘子描邊粗細
 @export var ball_color: Color = Color("1e90ff")         # 彈珠顏色
 @export var fire_ball_color: Color = Color("#FF3D00")    # 火焰彈珠專用球體顏色
+@export var lightning_ball_color: Color = Color("#E0F7FA") # ⚡ 閃電彈珠專用球體顏色 (冰藍白)
 
 @export_group("獎品區特效與色彩 (Slot FX)")
 @export var slot_outline_width: int = 15             # 獎品區文字描邊厚度
@@ -259,9 +260,12 @@ func _reset_mascot_to_default() -> void:
 
 func _setup_ball_style_option_ui() -> void:
 	ball_style_option.clear()
-	ball_style_option.add_item("普通彈珠"); ball_style_option.add_item("滷蛋彈珠")
-	ball_style_option.add_item("幻影滷蛋"); ball_style_option.add_item("彩虹彈珠")
-	ball_style_option.add_item("火焰彈珠")
+	ball_style_option.add_item("普通彈珠")   # 0
+	ball_style_option.add_item("滷蛋彈珠")   # 1
+	ball_style_option.add_item("幻影滷蛋")   # 2
+	ball_style_option.add_item("彩虹彈珠")   # 3
+	ball_style_option.add_item("火焰彈珠")   # 4
+	ball_style_option.add_item("閃電彈珠")   # 5
 
 func _on_ball_style_selected(idx: int) -> void:
 	rule_mgr.ball_style_type = idx
@@ -620,19 +624,22 @@ func _on_launch_button_pressed() -> void:
 	ball_records.append({"id": current_ball_counter, "ball": ball, "prize": "滾動中..."})
 	_update_result_log_ui()
 
-# 💡 安全的彈珠碰撞處理
+# 💡 安全的彈珠碰撞處理 (連動火焰與閃電特效)
 func _on_ball_body_entered(_body: Node, ball: RigidBody2D) -> void:
 	if is_instance_valid(ball) and ball.linear_velocity.length() > 20.0:
 		if AudioManager and AudioManager.has_method("play_peg_bounce"):
 			AudioManager.play_peg_bounce()
 		
-		if rule_mgr.ball_style_type == 4 and fx_mgr and fx_mgr.has_method("spawn_impact_fire"):
+		if fx_mgr:
 			var contact_pos = ball.global_position
 			var state = PhysicsServer2D.body_get_direct_state(ball.get_rid())
 			if state and state.get_contact_count() > 0:
 				contact_pos = state.get_contact_local_position(0)
 			
-			fx_mgr.spawn_impact_fire(self, contact_pos)
+			if rule_mgr.ball_style_type == 4 and fx_mgr.has_method("spawn_impact_fire"):
+				fx_mgr.spawn_impact_fire(self, contact_pos)
+			elif rule_mgr.ball_style_type == 5 and fx_mgr.has_method("spawn_impact_lightning"):
+				fx_mgr.spawn_impact_lightning(contact_pos)
 
 func _on_clear_button_pressed() -> void:
 	if _is_any_panel_open(): return
@@ -658,22 +665,27 @@ func _get_balls_in_slot(slot_idx: int, slot_width: float, center_x: float, botto
 func _draw() -> void:
 	var view_size = get_viewport_rect().size; var center_x = view_size.x / 2.0; var time_sec = Time.get_ticks_msec() / 1000.0
 
+	# 1. 繪製畫面全域背景
 	draw_rect(Rect2(Vector2.ZERO, view_size), rule_mgr.current_bg_color, true)
 
+	# 2. 繪製彈珠台內部背景與外框
 	var calculated_board_bg = rule_mgr.current_bg_color.darkened(board_bg_darken_factor) if board_bg_darken_factor >= 0 else rule_mgr.current_bg_color.lightened(abs(board_bg_darken_factor))
 	var board_rect = Rect2(center_x - board_width / 2.0, board_top_margin, board_width, board_height)
 	draw_rect(board_rect, calculated_board_bg, true)
 	draw_rect(board_rect, board_border_color, false, 4.0)
 
+	# 3. 繪製所有碰撞釘子
 	for peg in pegs_container.get_children():
 		if peg_outline_width > 0.0: draw_circle(peg.position, peg_radius + peg_outline_width, peg_outline_color)
 		draw_circle(peg.position, peg_radius, peg_color)
 
+	# 4. 委託特效管理器繪製動態軌跡與殘影 (幻影、彩虹拖尾、碰撞電弧等)
 	fx_mgr.draw_effects(self, rule_mgr.ball_style_type, ball_radius, time_sec, egg_ball_scale)
 
+	# 5. 繪製場上所有活動彈珠本體
 	for ball in active_balls:
 		if is_instance_valid(ball):
-			if rule_mgr.ball_style_type in [1, 2]:
+			if rule_mgr.ball_style_type in [1, 2]: # 滷蛋彈珠 & 幻影滷蛋
 				var ball_size = Vector2(ball_radius * 2.0 * egg_ball_scale, ball_radius * 2.0 * egg_ball_scale)
 				var fallback_tex: Texture2D = egg_textures[0] if egg_textures.size() > 0 else null
 				var b_tex: Texture2D = ball_texture_map.get(ball, fallback_tex)
@@ -681,13 +693,17 @@ func _draw() -> void:
 				if b_tex: draw_texture_rect(b_tex, Rect2(-ball_size / 2.0, ball_size), false)
 				else: draw_circle(Vector2.ZERO, ball_radius * egg_ball_scale, Color("#8D6E63"))
 				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-			elif rule_mgr.ball_style_type == 3:
+			elif rule_mgr.ball_style_type == 3: # 彩虹彈珠
 				var current_hue = fmod(time_sec * 0.6 + ball.get_instance_id() * 0.1, 1.0)
 				draw_circle(ball.position, ball_radius, Color.from_hsv(current_hue, 0.85, 1.0))
-			elif rule_mgr.ball_style_type == 4:
+			elif rule_mgr.ball_style_type == 4: # 火焰彈珠
 				draw_circle(ball.position, ball_radius, fire_ball_color)
-			else: draw_circle(ball.position, ball_radius, ball_color)
+			elif rule_mgr.ball_style_type == 5: # 閃電彈珠
+				draw_circle(ball.position, ball_radius, lightning_ball_color)
+			else: # 普通彈珠 (0)
+				draw_circle(ball.position, ball_radius, ball_color)
 
+	# 6. 繪製獎項小格子分隔線與獎品名稱文字渲染
 	var current_count = max(1, rule_mgr.prize_list.size())
 	var slot_width = board_width / current_count
 	var bottom_y = board_top_margin + board_height
@@ -709,16 +725,17 @@ func _draw() -> void:
 				text_color = slot_color_multiple; draw_font_size = roundi(rule_mgr.slot_font_size * 1.25)
 			elif balls_in_this_slot == 3:
 				text_color = slot_color_triple; draw_font_size = roundi(rule_mgr.slot_font_size * 1.30)
-			else:
+			else: # 4 個以上
 				text_color = slot_color_quad; draw_font_size = roundi(rule_mgr.slot_font_size * 1.35)
 
 		var text_pos = Vector2(slot_left + 2, bottom_y - 10 + text_offset_y)
 		
+		# 💡 獎品名稱繪製 (全時描邊支援)
 		if slot_outline_width > 0:
 			draw_string_outline(font_to_use, text_pos, prize_name, HORIZONTAL_ALIGNMENT_CENTER, slot_width - 4, draw_font_size, slot_outline_width, Color.BLACK)
-		
 		draw_string(font_to_use, text_pos, prize_name, HORIZONTAL_ALIGNMENT_CENTER, slot_width - 4, draw_font_size, text_color)
 
+		# 💡 多顆彈珠落入時，於底邊框下方顯示獨立的 x數量 提示
 		if balls_in_this_slot > 1:
 			var count_text = "x" + str(balls_in_this_slot)
 			var count_font_size = max(12, roundi(rule_mgr.slot_font_size * 0.85))
