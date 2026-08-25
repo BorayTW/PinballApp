@@ -5,16 +5,24 @@ extends Node
 # 🎆 彈珠特效與軌跡繪製管理器 (BallEffectManager.gd)
 # ==========================================
 @export_group("特效與殘影設定")
-@export var rainbow_trail_length: int = 30           # 彩虹拖尾長度
+@export var rainbow_trail_length: int = 30             # 彩虹拖尾長度
 @export var phantom_egg_spawn_interval: float = 0.08 # 殘影生成間隔 (秒)
 @export var phantom_egg_lifetime: float = 0.45       # 殘影壽命 (秒)
+
+@export_group("火焰彈珠碰撞火焰設定")
+@export_range(0.0, 1.0) var fire_impact_chance: float = 0.4 # 碰撞觸發火焰機率 (0.0 ~ 1.0)
+@export var fire_impact_lifetime: float = 3.0              # 殘留火焰維持時間 (秒)
+@export var fire_impact_scale: float = 1.3                 # 殘留火焰大小倍率
 
 var ball_trails: Dictionary = {}        
 var phantom_ghosts: Array[Dictionary] = [] 
 var phantom_spawn_timers: Dictionary = {} 
 
+# 儲存殘留火焰粒子的陣列
+var active_impact_flames: Array[CPUParticles2D] = []
+
 func process_effects(delta: float, active_balls: Array[RigidBody2D], ball_style_type: int, ball_texture_map: Dictionary) -> void:
-	# 幻影滷蛋殘影採樣 (模式 2)
+	# 1. 幻影滷蛋殘影採樣 (模式 2)
 	if ball_style_type == 2:
 		for ball in active_balls:
 			if is_instance_valid(ball) and ball.linear_velocity.length() > 15.0:
@@ -35,7 +43,7 @@ func process_effects(delta: float, active_balls: Array[RigidBody2D], ball_style_
 			if g["life"] <= 0: phantom_ghosts.remove_at(i)
 			i -= 1
 
-	# 彩虹軌跡採樣 (模式 3)
+	# 2. 彩虹軌跡採樣 (模式 3)
 	if ball_style_type == 3:
 		for ball in active_balls:
 			if is_instance_valid(ball):
@@ -44,8 +52,16 @@ func process_effects(delta: float, active_balls: Array[RigidBody2D], ball_style_
 				trail.append(ball.position)
 				if trail.size() > rainbow_trail_length: trail.pop_front()
 
+	# 3. 清理已結束的殘留火焰粒子
+	var f_idx = active_impact_flames.size() - 1
+	while f_idx >= 0:
+		var flame = active_impact_flames[f_idx]
+		if not is_instance_valid(flame) or not flame.emitting:
+			active_impact_flames.remove_at(f_idx)
+		f_idx -= 1
+
 func draw_effects(canvas: CanvasItem, ball_style_type: int, ball_radius: float, time_sec: float, egg_scale: float = 1.0) -> void:
-	# 繪製幻影殘影 (套用 egg_scale 放大係數)
+	# 繪製幻影殘影
 	if ball_style_type == 2:
 		for g in phantom_ghosts:
 			var alpha_ratio = clamp(g["life"] / g["max_life"], 0.0, 1.0) * 0.45
@@ -69,6 +85,7 @@ func draw_effects(canvas: CanvasItem, ball_style_type: int, ball_radius: float, 
 					var rainbow_col = Color.from_hsv(hue, 0.8, 1.0, alpha)
 					canvas.draw_circle(trail[t_idx], ball_radius * (0.3 + 0.7 * alpha), rainbow_col)
 
+# 附加隨球移動的火焰特效
 func attach_fire_particles(ball: RigidBody2D, ball_radius: float) -> void:
 	var particles = CPUParticles2D.new()
 	particles.name = "FireParticles"
@@ -82,7 +99,53 @@ func attach_fire_particles(ball: RigidBody2D, ball_radius: float) -> void:
 	particles.color = Color("#FF5722")
 	ball.add_child(particles)
 
+# 💡 精確在碰撞接觸點原地燃燒 3 秒的殘留火焰特效
+func spawn_impact_fire(parent_node: Node, contact_pos: Vector2) -> void:
+	if randf() > fire_impact_chance:
+		return
+
+	var flame = CPUParticles2D.new()
+	flame.position = contact_pos
+	flame.amount = 20
+	flame.lifetime = 0.6
+	flame.one_shot = false
+	flame.explosiveness = 0.1
+	
+	flame.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+	flame.emission_sphere_radius = 1.5 * fire_impact_scale
+	
+	flame.direction = Vector2(0, -1)
+	flame.spread = 20.0
+	flame.gravity = Vector2(0, -35)
+	flame.initial_velocity_min = 6.0 * fire_impact_scale
+	flame.initial_velocity_max = 16.0 * fire_impact_scale
+	
+	flame.scale_amount_min = 3.0 * fire_impact_scale
+	flame.scale_amount_max = 6.0 * fire_impact_scale
+	var scale_curve = Curve.new()
+	scale_curve.add_point(Vector2(0.0, 0.4))
+	scale_curve.add_point(Vector2(0.3, 1.0))
+	scale_curve.add_point(Vector2(1.0, 0.0))
+	flame.scale_amount_curve = scale_curve
+	
+	flame.color = Color("#FF6D00")
+
+	parent_node.add_child(flame)
+	active_impact_flames.append(flame)
+
+	# 💡 改用 Tween 取代 Timer 與 Lambda！
+	# Tween 綁定於 flame，只要使用者按下「清空」導致 flame 刪除，Tween 會立刻自動銷毀，絕不殘留報錯！
+	var tween = flame.create_tween()
+	tween.tween_interval(fire_impact_lifetime)
+	tween.tween_callback(flame.set_emitting.bind(false))
+	tween.tween_interval(1.0)
+	tween.tween_callback(flame.queue_free)
+
 func clear_all() -> void:
 	ball_trails.clear()
 	phantom_ghosts.clear()
 	phantom_spawn_timers.clear()
+	for f in active_impact_flames:
+		if is_instance_valid(f):
+			f.queue_free()
+	active_impact_flames.clear()

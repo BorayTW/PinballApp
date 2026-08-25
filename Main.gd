@@ -9,10 +9,10 @@ extends Control
 @export var item_list_font_offset: int = -4         # 獎項列表字體縮放偏移量
 
 @export_group("畫面設定 - 字體 Bar 上下限設定")
-@export var ui_font_min: float = 18.0               # UI 字體最小值
+@export var ui_font_min: float = 12.0               # UI 字體最小值
 @export var ui_font_max: float = 40.0               # UI 字體最大值
 @export var slot_font_min: float = 16.0             # 獎品區字體最小值
-@export var slot_font_max: float = 50.0             # 獎品區字體最大值
+@export var slot_font_max: float = 80.0             # 獎品區字體最大值
 
 @export_group("色彩與視覺設定 (Colors & Visuals)")
 @export var bg_color_palette: Array[Color] = [
@@ -132,6 +132,8 @@ func _ready() -> void:
 	is_initializing = true
 	add_child(rule_mgr); add_child(fx_mgr)
 	
+	_setup_panel_opaque_styles() # 不透明面板主題
+
 	if ResourceLoader.exists("res://NotoSansTC-VariableFont_wght.ttf"):
 		custom_font = load("res://NotoSansTC-VariableFont_wght.ttf")
 
@@ -141,7 +143,6 @@ func _ready() -> void:
 	var default_bg = bg_color_palette[0] if bg_color_palette.size() > 0 else Color("#1F242E")
 	rule_mgr.load_settings(default_bg)
 
-	# ⚙️ 初始化拉條上下限
 	ui_font_slider.min_value = ui_font_min
 	ui_font_slider.max_value = ui_font_max
 	slot_font_slider.min_value = slot_font_min
@@ -153,16 +154,18 @@ func _ready() -> void:
 	_setup_system_buttons(); _setup_version_label(); _setup_bg_color_buttons(); _refresh_preset_options()
 
 	preset_option.item_selected.connect(_on_preset_selected)
+	
+	# 💡 將所有 Lambda 清理為具名函式，防禦記憶體報錯
 	add_button.pressed.connect(_on_add_button_pressed)
-	add_input.text_submitted.connect(func(_t): _on_add_button_pressed())
+	add_input.text_submitted.connect(_on_add_input_submitted)
 	item_list.item_selected.connect(_on_item_list_item_selected)
 	delete_button.pressed.connect(_on_delete_button_pressed)
 	shuffle_button.pressed.connect(_on_shuffle_button_pressed)
 	save_preset_button.pressed.connect(_on_save_preset_button_pressed)
 	delete_preset_button.pressed.connect(_on_delete_preset_button_pressed)
 
-	ball_count_minus_button.pressed.connect(func(): _update_total_ball_count(rule_mgr.total_ball_count - 1))
-	ball_count_plus_button.pressed.connect(func(): _update_total_ball_count(rule_mgr.total_ball_count + 1))
+	ball_count_minus_button.pressed.connect(_on_ball_count_minus_pressed)
+	ball_count_plus_button.pressed.connect(_on_ball_count_plus_pressed)
 	ball_count_input.text_submitted.connect(_on_ball_count_input_submitted)
 
 	$UI/DeleteConfirmPanel/VBox/HBox/DeleteConfirmOkButton.pressed.connect(_on_delete_confirm_ok_pressed)
@@ -171,7 +174,8 @@ func _ready() -> void:
 	ui_font_slider.value_changed.connect(_on_ui_font_slider_value_changed)
 	slot_font_slider.value_changed.connect(_on_slot_font_slider_value_changed)
 	sound_slider.value_changed.connect(_on_sound_slider_value_changed)
-	slot_effect_check.toggled.connect(func(val): rule_mgr.enable_slot_effects = val; rule_mgr.save_settings())
+	
+	slot_effect_check.toggled.connect(_on_slot_effect_check_toggled)
 	ball_style_option.item_selected.connect(_on_ball_style_selected)
 	
 	_update_ui_font_size(rule_mgr.ui_font_size)
@@ -182,11 +186,34 @@ func _ready() -> void:
 	ball_spawner.position = Vector2(view_size.x / 2.0, board_top_margin + 20)
 	is_initializing = false
 
+# 💡 安全的具名事件回調
+func _on_add_input_submitted(_text: String) -> void: _on_add_button_pressed()
+func _on_ball_count_minus_pressed() -> void: _update_total_ball_count(rule_mgr.total_ball_count - 1)
+func _on_ball_count_plus_pressed() -> void: _update_total_ball_count(rule_mgr.total_ball_count + 1)
+func _on_slot_effect_check_toggled(val: bool) -> void: rule_mgr.enable_slot_effects = val; rule_mgr.save_settings()
+
+func _setup_panel_opaque_styles() -> void:
+	var style_box = StyleBoxFlat.new()
+	style_box.bg_color = Color(0.15, 0.17, 0.22, 1.0)
+	style_box.corner_radius_top_left = 12
+	style_box.corner_radius_top_right = 12
+	style_box.corner_radius_bottom_left = 12
+	style_box.corner_radius_bottom_right = 12
+	
+	var pad = 16
+	style_box.content_margin_left = pad
+	style_box.content_margin_top = pad
+	style_box.content_margin_right = pad
+	style_box.content_margin_bottom = pad
+
+	settings_panel.add_theme_stylebox_override("panel", style_box)
+	display_panel.add_theme_stylebox_override("panel", style_box)
+	delete_confirm_panel.add_theme_stylebox_override("panel", style_box)
+
 func _apply_loaded_settings() -> void:
 	ui_font_slider.value = rule_mgr.ui_font_size
 	slot_font_slider.value = rule_mgr.slot_font_size
 	
-	# 更新 Label 數值顯示
 	ui_font_label.text = "一般 UI 按鈕與選單大小: " + str(rule_mgr.ui_font_size)
 	slot_font_label.text = "獎品區文字大小: " + str(rule_mgr.slot_font_size)
 	sound_label.text = "遊戲音效: " + str(rule_mgr.sound_volume)
@@ -250,7 +277,7 @@ func _process(delta: float) -> void:
 		launch_timer -= delta
 		if launch_timer <= 0:
 			can_launch = true
-			if not _is_any_panel_open() and remaining_ball_count > 0: launch_button.disabled = false
+			_update_action_buttons_state() # 冷卻完畢同步更新按鈕
 
 	active_balls = active_balls.filter(func(b): return is_instance_valid(b))
 	fx_mgr.process_effects(delta, active_balls, rule_mgr.ball_style_type, ball_texture_map)
@@ -280,8 +307,7 @@ func _on_ball_count_input_submitted(txt: String) -> void:
 
 func _update_launch_button_ui() -> void:
 	launch_button.text = "發射彈珠 (" + str(remaining_ball_count) + ")"
-	var is_open = _is_any_panel_open()
-	launch_button.disabled = not (remaining_ball_count > 0 and not is_open and can_launch)
+	_update_action_buttons_state()
 
 func _setup_bg_color_buttons() -> void:
 	for c in bg_color_hbox.get_children(): c.queue_free()
@@ -297,7 +323,7 @@ func _setup_bg_color_buttons() -> void:
 		btn.add_theme_stylebox_override("normal", style)
 		btn.add_theme_stylebox_override("hover", style)
 		btn.add_theme_stylebox_override("pressed", style)
-		btn.pressed.connect(func(): _on_bg_color_selected(c))
+		btn.pressed.connect(_on_bg_color_selected.bind(c)) # 💡 安全具名綁定
 		bg_color_hbox.add_child(btn)
 
 func _on_bg_color_selected(color: Color) -> void:
@@ -325,15 +351,18 @@ func _on_delete_preset_button_pressed() -> void:
 	pending_delete_preset_name = preset_option.get_item_text(preset_option.selected)
 	delete_confirm_text.text = "確定要刪除預設名單：\n【 " + pending_delete_preset_name + " 】嗎？"
 	delete_confirm_panel.show()
+	_update_action_buttons_state()
 
 func _on_delete_confirm_ok_pressed() -> void:
 	delete_confirm_panel.hide()
 	if pending_delete_preset_name != "":
 		if rule_mgr.delete_preset(pending_delete_preset_name): _refresh_preset_options()
 		pending_delete_preset_name = ""
+	_update_action_buttons_state()
 
 func _on_delete_confirm_cancel_pressed() -> void:
 	delete_confirm_panel.hide(); pending_delete_preset_name = ""
+	_update_action_buttons_state()
 
 func _on_preset_selected(idx: int) -> void:
 	if preset_option.disabled or idx < 0: return
@@ -355,16 +384,29 @@ func _setup_version_label() -> void:
 	var ver = ProjectSettings.get_setting("application/config/version", "1.0.0")
 	version_label.text = "v" + str(ver)
 
+# 💡 優化 1 & 2：彈窗互斥與自動禁用底部按鈕
 func _on_display_settings_button_pressed() -> void:
-	if display_panel.visible: _close_all_panels()
-	else: settings_panel.hide(); display_panel.show(); _update_action_buttons_state()
+	if display_panel.visible: 
+		_close_all_panels()
+	else: 
+		settings_panel.hide()
+		delete_confirm_panel.hide()
+		display_panel.show()
+		_update_action_buttons_state()
 
 func _on_settings_button_pressed() -> void:
-	if settings_panel.visible: _close_all_panels()
-	else: display_panel.hide(); settings_panel.show(); _update_action_buttons_state()
+	if settings_panel.visible: 
+		_close_all_panels()
+	else: 
+		display_panel.hide()
+		delete_confirm_panel.hide()
+		settings_panel.show()
+		_update_action_buttons_state()
 
 func _close_all_panels() -> void:
-	display_panel.hide(); settings_panel.hide(); delete_confirm_panel.hide()
+	display_panel.hide()
+	settings_panel.hide()
+	delete_confirm_panel.hide()
 	_update_action_buttons_state()
 
 func _is_any_panel_open() -> bool:
@@ -510,11 +552,14 @@ func _generate_pegs() -> void:
 			phys_mat.friction = 0.1
 			peg.physics_material_override = phys_mat
 
-			peg.body_entered.connect(func(_body):
-				if AudioManager: AudioManager.play_peg_bounce()
-			)
+			# 💡 安全的釘子碰撞回調
+			peg.body_entered.connect(_on_peg_body_entered)
 
 			pegs_container.add_child(peg)
+
+func _on_peg_body_entered(_body: Node) -> void:
+	if AudioManager and AudioManager.has_method("play_peg_bounce"):
+		AudioManager.play_peg_bounce()
 
 func _generate_slots() -> void:
 	var center_x = get_viewport_rect().size.x / 2.0
@@ -533,7 +578,9 @@ func _generate_slots() -> void:
 		rect_shape.size = Vector2(slot_width - 8, 16); col.shape = rect_shape; area.add_child(col)
 
 		var prize_name = rule_mgr.prize_list[i]
-		area.body_entered.connect(func(body): _on_slot_entered(body, prize_name, area))
+		
+		# 💡 安全的獎品區碰撞回調
+		area.body_entered.connect(_on_slot_entered.bind(prize_name, area))
 		slots_container.add_child(area)
 
 func _on_launch_button_pressed() -> void:
@@ -554,13 +601,8 @@ func _on_launch_button_pressed() -> void:
 	var col = CollisionShape2D.new(); var circle_shape = CircleShape2D.new()
 	circle_shape.radius = ball_radius; col.shape = circle_shape; ball.add_child(col)
 
-	# 💡 碰撞監聽：加上速度檢查 (linear_velocity > 20.0 px/s)
-	# 當多顆彈珠堆疊在狹小格子底端時 (速度很小)，會被自動攔截不觸發碰撞音效
-	ball.body_entered.connect(func(_body):
-		if is_instance_valid(ball) and ball.linear_velocity.length() > 20.0:
-			if AudioManager and AudioManager.has_method("play_peg_bounce"):
-				AudioManager.play_peg_bounce()
-	)
+	# 💡 安全的具名綁定，徹底防禦 Lambda 閉包變數被釋放導致的錯誤
+	ball.body_entered.connect(_on_ball_body_entered.bind(ball))
 
 	if egg_textures.size() > 0:
 		var picked_tex = egg_textures.pick_random()
@@ -577,6 +619,20 @@ func _on_launch_button_pressed() -> void:
 	current_ball_counter += 1
 	ball_records.append({"id": current_ball_counter, "ball": ball, "prize": "滾動中..."})
 	_update_result_log_ui()
+
+# 💡 安全的彈珠碰撞處理
+func _on_ball_body_entered(_body: Node, ball: RigidBody2D) -> void:
+	if is_instance_valid(ball) and ball.linear_velocity.length() > 20.0:
+		if AudioManager and AudioManager.has_method("play_peg_bounce"):
+			AudioManager.play_peg_bounce()
+		
+		if rule_mgr.ball_style_type == 4 and fx_mgr and fx_mgr.has_method("spawn_impact_fire"):
+			var contact_pos = ball.global_position
+			var state = PhysicsServer2D.body_get_direct_state(ball.get_rid())
+			if state and state.get_contact_count() > 0:
+				contact_pos = state.get_contact_local_position(0)
+			
+			fx_mgr.spawn_impact_fire(self, contact_pos)
 
 func _on_clear_button_pressed() -> void:
 	if _is_any_panel_open(): return
@@ -653,21 +709,20 @@ func _draw() -> void:
 				text_color = slot_color_multiple; draw_font_size = roundi(rule_mgr.slot_font_size * 1.25)
 			elif balls_in_this_slot == 3:
 				text_color = slot_color_triple; draw_font_size = roundi(rule_mgr.slot_font_size * 1.30)
-			else: # 4 個以上
+			else:
 				text_color = slot_color_quad; draw_font_size = roundi(rule_mgr.slot_font_size * 1.35)
 
 		var text_pos = Vector2(slot_left + 2, bottom_y - 10 + text_offset_y)
 		
-		# 1. 獎品格內部的描邊與獎品名稱繪製 (維持乾淨不帶 x數量)
 		if slot_outline_width > 0:
 			draw_string_outline(font_to_use, text_pos, prize_name, HORIZONTAL_ALIGNMENT_CENTER, slot_width - 4, draw_font_size, slot_outline_width, Color.BLACK)
+		
 		draw_string(font_to_use, text_pos, prize_name, HORIZONTAL_ALIGNMENT_CENTER, slot_width - 4, draw_font_size, text_color)
 
-		# 2. 多顆彈珠落入時，於「彈珠台底邊與按鈕中間的空白處」顯示不晃動的 x數量 提示
 		if balls_in_this_slot > 1:
 			var count_text = "x" + str(balls_in_this_slot)
-			var count_font_size = max(26, roundi(rule_mgr.slot_font_size * 0.85))
-			var count_pos = Vector2(slot_left + 2, bottom_y + count_font_size + 2) # 顯示於邊框下方
+			var count_font_size = max(12, roundi(rule_mgr.slot_font_size * 0.85))
+			var count_pos = Vector2(slot_left + 2, bottom_y + count_font_size + 8)
 			
 			if slot_outline_width > 0:
 				draw_string_outline(font_to_use, count_pos, count_text, HORIZONTAL_ALIGNMENT_CENTER, slot_width - 4, count_font_size, max(2, slot_outline_width * 0.6), Color.BLACK)
