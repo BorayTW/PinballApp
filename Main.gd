@@ -133,7 +133,7 @@ func _ready() -> void:
 	is_initializing = true
 	add_child(rule_mgr); add_child(fx_mgr)
 	
-	_setup_panel_opaque_styles() # 不透明面板主題
+	_setup_panel_opaque_styles()
 
 	if ResourceLoader.exists("res://NotoSansTC-VariableFont_wght.ttf"):
 		custom_font = load("res://NotoSansTC-VariableFont_wght.ttf")
@@ -156,7 +156,6 @@ func _ready() -> void:
 
 	preset_option.item_selected.connect(_on_preset_selected)
 	
-	# 💡 將所有 Lambda 清理為具名函式，防禦記憶體報錯
 	add_button.pressed.connect(_on_add_button_pressed)
 	add_input.text_submitted.connect(_on_add_input_submitted)
 	item_list.item_selected.connect(_on_item_list_item_selected)
@@ -187,7 +186,6 @@ func _ready() -> void:
 	ball_spawner.position = Vector2(view_size.x / 2.0, board_top_margin + 20)
 	is_initializing = false
 
-# 💡 安全的具名事件回調
 func _on_add_input_submitted(_text: String) -> void: _on_add_button_pressed()
 func _on_ball_count_minus_pressed() -> void: _update_total_ball_count(rule_mgr.total_ball_count - 1)
 func _on_ball_count_plus_pressed() -> void: _update_total_ball_count(rule_mgr.total_ball_count + 1)
@@ -196,16 +194,10 @@ func _on_slot_effect_check_toggled(val: bool) -> void: rule_mgr.enable_slot_effe
 func _setup_panel_opaque_styles() -> void:
 	var style_box = StyleBoxFlat.new()
 	style_box.bg_color = Color(0.15, 0.17, 0.22, 1.0)
-	style_box.corner_radius_top_left = 12
-	style_box.corner_radius_top_right = 12
-	style_box.corner_radius_bottom_left = 12
-	style_box.corner_radius_bottom_right = 12
-	
-	var pad = 16
-	style_box.content_margin_left = pad
-	style_box.content_margin_top = pad
-	style_box.content_margin_right = pad
-	style_box.content_margin_bottom = pad
+	style_box.corner_radius_top_left = 12; style_box.corner_radius_top_right = 12
+	style_box.corner_radius_bottom_left = 12; style_box.corner_radius_bottom_right = 12
+	style_box.content_margin_left = 16; style_box.content_margin_top = 16
+	style_box.content_margin_right = 16; style_box.content_margin_bottom = 16
 
 	settings_panel.add_theme_stylebox_override("panel", style_box)
 	display_panel.add_theme_stylebox_override("panel", style_box)
@@ -214,12 +206,11 @@ func _setup_panel_opaque_styles() -> void:
 func _apply_loaded_settings() -> void:
 	ui_font_slider.value = rule_mgr.ui_font_size
 	slot_font_slider.value = rule_mgr.slot_font_size
-	
 	ui_font_label.text = "一般 UI 按鈕與選單大小: " + str(rule_mgr.ui_font_size)
 	slot_font_label.text = "獎品區文字大小: " + str(rule_mgr.slot_font_size)
 	sound_label.text = "遊戲音效: " + str(rule_mgr.sound_volume)
-	
 	sound_slider.value = rule_mgr.sound_volume
+	
 	if AudioManager: AudioManager.set_volume(rule_mgr.sound_volume)
 	slot_effect_check.button_pressed = rule_mgr.enable_slot_effects
 	ball_style_option.select(rule_mgr.ball_style_type)
@@ -233,13 +224,11 @@ func _load_egg_textures() -> void:
 			dir.list_dir_begin()
 			var file_name = dir.get_next()
 			var loaded_files: Array[String] = []
-			
 			while file_name != "":
 				if not dir.current_is_dir():
 					var clean_name = file_name.replace(".remap", "").replace(".import", "")
 					if clean_name.ends_with(".png") or clean_name.ends_with(".jpg"):
-						if not clean_name in loaded_files:
-							loaded_files.append(clean_name)
+						if not clean_name in loaded_files: loaded_files.append(clean_name)
 				file_name = dir.get_next()
 			dir.list_dir_end()
 			
@@ -247,8 +236,7 @@ func _load_egg_textures() -> void:
 			for f in loaded_files:
 				var full_path = egg_folder_path.path_join(f)
 				var tex = load(full_path) as Texture2D
-				if tex and not egg_textures.has(tex):
-					egg_textures.append(tex)
+				if tex and not egg_textures.has(tex): egg_textures.append(tex)
 	
 	if egg_textures.size() == 0 and ResourceLoader.exists("res://egg_ball.png"):
 		var single_tex = load("res://egg_ball.png") as Texture2D
@@ -266,14 +254,17 @@ func _setup_ball_style_option_ui() -> void:
 	ball_style_option.add_item("彩虹彈珠")   # 3
 	ball_style_option.add_item("火焰彈珠")   # 4
 	ball_style_option.add_item("閃電彈珠")   # 5
+	ball_style_option.add_item("雷射彈珠")   # 6
 
+# 💡 重構重點：將切換特效清理的工作丟回給特效總管
 func _on_ball_style_selected(idx: int) -> void:
 	rule_mgr.ball_style_type = idx
-	_clean_ball_particles_and_trails()
-	if rule_mgr.ball_style_type == 4:
-		for ball in active_balls:
-			if is_instance_valid(ball) and not ball.has_node("FireParticles"):
-				fx_mgr.attach_fire_particles(ball, ball_radius)
+	fx_mgr.clear_all(active_balls)
+	ball_texture_map.clear()
+	
+	for ball in active_balls:
+		if is_instance_valid(ball):
+			fx_mgr.on_ball_spawned(ball, rule_mgr.ball_style_type, ball_radius)
 	rule_mgr.save_settings()
 
 func _process(delta: float) -> void:
@@ -281,19 +272,11 @@ func _process(delta: float) -> void:
 		launch_timer -= delta
 		if launch_timer <= 0:
 			can_launch = true
-			_update_action_buttons_state() # 冷卻完畢同步更新按鈕
+			_update_action_buttons_state()
 
 	active_balls = active_balls.filter(func(b): return is_instance_valid(b))
 	fx_mgr.process_effects(delta, active_balls, rule_mgr.ball_style_type, ball_texture_map)
 	queue_redraw()
-
-func _clean_ball_particles_and_trails() -> void:
-	fx_mgr.clear_all()
-	ball_texture_map.clear()
-	for ball in active_balls:
-		if is_instance_valid(ball):
-			for child in ball.get_children():
-				if child is CPUParticles2D: child.queue_free()
 
 func _update_result_log_ui() -> void:
 	var log_text = ""
@@ -324,10 +307,8 @@ func _setup_bg_color_buttons() -> void:
 		style.corner_radius_bottom_left = 6; style.corner_radius_bottom_right = 6
 		style.border_width_left = 2; style.border_width_top = 2; style.border_width_right = 2; style.border_width_bottom = 2
 		style.border_color = Color.WHITE if c == rule_mgr.current_bg_color else Color(0.4, 0.4, 0.4, 0.5)
-		btn.add_theme_stylebox_override("normal", style)
-		btn.add_theme_stylebox_override("hover", style)
-		btn.add_theme_stylebox_override("pressed", style)
-		btn.pressed.connect(_on_bg_color_selected.bind(c)) # 💡 安全具名綁定
+		btn.add_theme_stylebox_override("normal", style); btn.add_theme_stylebox_override("hover", style); btn.add_theme_stylebox_override("pressed", style)
+		btn.pressed.connect(_on_bg_color_selected.bind(c))
 		bg_color_hbox.add_child(btn)
 
 func _on_bg_color_selected(color: Color) -> void:
@@ -354,8 +335,7 @@ func _on_delete_preset_button_pressed() -> void:
 	if preset_option.disabled or preset_option.selected < 0: return
 	pending_delete_preset_name = preset_option.get_item_text(preset_option.selected)
 	delete_confirm_text.text = "確定要刪除預設名單：\n【 " + pending_delete_preset_name + " 】嗎？"
-	delete_confirm_panel.show()
-	_update_action_buttons_state()
+	delete_confirm_panel.show(); _update_action_buttons_state()
 
 func _on_delete_confirm_ok_pressed() -> void:
 	delete_confirm_panel.hide()
@@ -388,30 +368,16 @@ func _setup_version_label() -> void:
 	var ver = ProjectSettings.get_setting("application/config/version", "1.0.0")
 	version_label.text = "v" + str(ver)
 
-# 💡 優化 1 & 2：彈窗互斥與自動禁用底部按鈕
 func _on_display_settings_button_pressed() -> void:
-	if display_panel.visible: 
-		_close_all_panels()
-	else: 
-		settings_panel.hide()
-		delete_confirm_panel.hide()
-		display_panel.show()
-		_update_action_buttons_state()
+	if display_panel.visible: _close_all_panels()
+	else: settings_panel.hide(); delete_confirm_panel.hide(); display_panel.show(); _update_action_buttons_state()
 
 func _on_settings_button_pressed() -> void:
-	if settings_panel.visible: 
-		_close_all_panels()
-	else: 
-		display_panel.hide()
-		delete_confirm_panel.hide()
-		settings_panel.show()
-		_update_action_buttons_state()
+	if settings_panel.visible: _close_all_panels()
+	else: display_panel.hide(); delete_confirm_panel.hide(); settings_panel.show(); _update_action_buttons_state()
 
 func _close_all_panels() -> void:
-	display_panel.hide()
-	settings_panel.hide()
-	delete_confirm_panel.hide()
-	_update_action_buttons_state()
+	display_panel.hide(); settings_panel.hide(); delete_confirm_panel.hide(); _update_action_buttons_state()
 
 func _is_any_panel_open() -> bool:
 	return display_panel.visible or settings_panel.visible or delete_confirm_panel.visible
@@ -423,21 +389,16 @@ func _update_action_buttons_state() -> void:
 
 func _on_ui_font_slider_value_changed(val: float) -> void:
 	if is_initializing: return
-	rule_mgr.ui_font_size = int(val)
-	ui_font_label.text = "一般 UI 按鈕與選單大小: " + str(rule_mgr.ui_font_size)
-	_update_ui_font_size(rule_mgr.ui_font_size)
-	rule_mgr.save_settings()
+	rule_mgr.ui_font_size = int(val); ui_font_label.text = "一般 UI 按鈕與選單大小: " + str(rule_mgr.ui_font_size)
+	_update_ui_font_size(rule_mgr.ui_font_size); rule_mgr.save_settings()
 
 func _on_slot_font_slider_value_changed(val: float) -> void:
 	if is_initializing: return
-	rule_mgr.slot_font_size = int(val)
-	slot_font_label.text = "獎品區文字大小: " + str(rule_mgr.slot_font_size)
-	queue_redraw()
-	rule_mgr.save_settings()
+	rule_mgr.slot_font_size = int(val); slot_font_label.text = "獎品區文字大小: " + str(rule_mgr.slot_font_size)
+	queue_redraw(); rule_mgr.save_settings()
 
 func _on_sound_slider_value_changed(val: float) -> void:
-	rule_mgr.sound_volume = int(val)
-	sound_label.text = "遊戲音效: " + str(rule_mgr.sound_volume)
+	rule_mgr.sound_volume = int(val); sound_label.text = "遊戲音效: " + str(rule_mgr.sound_volume)
 	if AudioManager: AudioManager.set_volume(rule_mgr.sound_volume)
 	if not is_initializing: rule_mgr.save_settings()
 
@@ -484,8 +445,7 @@ func _on_add_button_pressed() -> void:
 	var txt = add_input.text.strip_edges()
 	if txt == "": return
 	var selected = item_list.get_selected_items()
-	if selected.size() > 0:
-		rule_mgr.prize_list[selected[0]] = txt; item_list.deselect_all()
+	if selected.size() > 0: rule_mgr.prize_list[selected[0]] = txt; item_list.deselect_all()
 	else: rule_mgr.prize_list.append(txt)
 	add_input.clear(); _refresh_item_list_ui(); _clear_all_balls(); _rebuild_slots(); rule_mgr.save_settings()
 
@@ -500,8 +460,9 @@ func _on_shuffle_button_pressed() -> void:
 		rule_mgr.prize_list.shuffle(); item_list.deselect_all(); add_input.clear()
 		_refresh_item_list_ui(); _clear_all_balls(); _rebuild_slots(); rule_mgr.save_settings()
 
+# 💡 重構重點：場上清理與卸載也完全交給特效總管
 func _clear_all_balls() -> void:
-	_clean_ball_particles_and_trails()
+	fx_mgr.clear_all(active_balls)
 	for ball in active_balls:
 		if is_instance_valid(ball): ball.queue_free()
 	active_balls.clear(); ball_records.clear(); current_ball_counter = 0
@@ -540,30 +501,18 @@ func _generate_pegs() -> void:
 			var peg_x = (center_x - board_width / 2.0) + spacing_x * (c + 1) + offset_x
 			var peg_y = start_y + spacing_y * r
 			var peg = RigidBody2D.new()
-			peg.freeze = true
-			peg.position = Vector2(peg_x, peg_y)
-			peg.max_contacts_reported = 3
-			peg.contact_monitor = true
+			peg.freeze = true; peg.position = Vector2(peg_x, peg_y); peg.max_contacts_reported = 3; peg.contact_monitor = true
 
-			var col = CollisionShape2D.new()
-			var circle_shape = CircleShape2D.new()
-			circle_shape.radius = peg_radius
-			col.shape = circle_shape
-			peg.add_child(col)
+			var col = CollisionShape2D.new(); var circle_shape = CircleShape2D.new()
+			circle_shape.radius = peg_radius; col.shape = circle_shape; peg.add_child(col)
 
-			var phys_mat = PhysicsMaterial.new()
-			phys_mat.bounce = peg_bounce
-			phys_mat.friction = 0.1
+			var phys_mat = PhysicsMaterial.new(); phys_mat.bounce = peg_bounce; phys_mat.friction = 0.1
 			peg.physics_material_override = phys_mat
-
-			# 💡 安全的釘子碰撞回調
 			peg.body_entered.connect(_on_peg_body_entered)
-
 			pegs_container.add_child(peg)
 
 func _on_peg_body_entered(_body: Node) -> void:
-	if AudioManager and AudioManager.has_method("play_peg_bounce"):
-		AudioManager.play_peg_bounce()
+	if AudioManager and AudioManager.has_method("play_peg_bounce"): AudioManager.play_peg_bounce()
 
 func _generate_slots() -> void:
 	var center_x = get_viewport_rect().size.x / 2.0
@@ -574,16 +523,13 @@ func _generate_slots() -> void:
 	for i in range(current_count):
 		var slot_left = (center_x - board_width / 2.0) + i * slot_width
 		var slot_center_x = slot_left + slot_width / 2.0
-		if i > 0:
-			_create_wall_rect(Vector2(slot_left, bottom_y - slot_height / 2.0), Vector2(8, slot_height), "SlotWall_" + str(i))
+		if i > 0: _create_wall_rect(Vector2(slot_left, bottom_y - slot_height / 2.0), Vector2(8, slot_height), "SlotWall_" + str(i))
 
 		var area = Area2D.new(); area.position = Vector2(slot_center_x, bottom_y - 12); area.name = "SlotArea_" + str(i)
 		var col = CollisionShape2D.new(); var rect_shape = RectangleShape2D.new()
 		rect_shape.size = Vector2(slot_width - 8, 16); col.shape = rect_shape; area.add_child(col)
 
 		var prize_name = rule_mgr.prize_list[i]
-		
-		# 💡 安全的獎品區碰撞回調
 		area.body_entered.connect(_on_slot_entered.bind(prize_name, area))
 		slots_container.add_child(area)
 
@@ -595,9 +541,7 @@ func _on_launch_button_pressed() -> void:
 	if remaining_ball_count <= 0: launch_button.disabled = true
 
 	var ball = RigidBody2D.new()
-	ball.contact_monitor = true
-	ball.max_contacts_reported = 3
-	
+	ball.contact_monitor = true; ball.max_contacts_reported = 3
 	var phys_mat = PhysicsMaterial.new(); phys_mat.bounce = ball_bounce; phys_mat.friction = 0.05
 	ball.physics_material_override = phys_mat; ball.mass = ball_mass; ball.gravity_scale = ball_gravity_scale
 	ball.linear_damp = 0.8; ball.angular_damp = 0.8
@@ -605,7 +549,6 @@ func _on_launch_button_pressed() -> void:
 	var col = CollisionShape2D.new(); var circle_shape = CircleShape2D.new()
 	circle_shape.radius = ball_radius; col.shape = circle_shape; ball.add_child(col)
 
-	# 💡 安全的具名綁定，徹底防禦 Lambda 閉包變數被釋放導致的錯誤
 	ball.body_entered.connect(_on_ball_body_entered.bind(ball))
 
 	if egg_textures.size() > 0:
@@ -613,7 +556,8 @@ func _on_launch_button_pressed() -> void:
 		ball_texture_map[ball] = picked_tex
 		if mascot_node and mascot_node.has_method("set_mascot_texture"): mascot_node.set_mascot_texture(picked_tex)
 
-	if rule_mgr.ball_style_type == 4: fx_mgr.attach_fire_particles(ball, ball_radius)
+	# 💡 重構重點：將發射附屬特效任務丟給特效總管
+	fx_mgr.on_ball_spawned(ball, rule_mgr.ball_style_type, ball_radius)
 
 	var spawn_pos = ball_spawner.global_position
 	spawn_pos.x += randf_range(-spawn_x_offset, spawn_x_offset)
@@ -624,22 +568,17 @@ func _on_launch_button_pressed() -> void:
 	ball_records.append({"id": current_ball_counter, "ball": ball, "prize": "滾動中..."})
 	_update_result_log_ui()
 
-# 💡 安全的彈珠碰撞處理 (連動火焰與閃電特效)
+# 💡 重構重點：只負責處理碰撞座標，特化特效完全交給特效總管
 func _on_ball_body_entered(_body: Node, ball: RigidBody2D) -> void:
 	if is_instance_valid(ball) and ball.linear_velocity.length() > 20.0:
-		if AudioManager and AudioManager.has_method("play_peg_bounce"):
-			AudioManager.play_peg_bounce()
+		if AudioManager and AudioManager.has_method("play_peg_bounce"): AudioManager.play_peg_bounce()
 		
-		if fx_mgr:
-			var contact_pos = ball.global_position
-			var state = PhysicsServer2D.body_get_direct_state(ball.get_rid())
-			if state and state.get_contact_count() > 0:
-				contact_pos = state.get_contact_local_position(0)
-			
-			if rule_mgr.ball_style_type == 4 and fx_mgr.has_method("spawn_impact_fire"):
-				fx_mgr.spawn_impact_fire(self, contact_pos)
-			elif rule_mgr.ball_style_type == 5 and fx_mgr.has_method("spawn_impact_lightning"):
-				fx_mgr.spawn_impact_lightning(contact_pos)
+		var contact_pos = ball.global_position
+		var state = PhysicsServer2D.body_get_direct_state(ball.get_rid())
+		if state and state.get_contact_count() > 0: contact_pos = state.get_contact_local_position(0)
+		
+		# 無條件丟給特效經理分流
+		fx_mgr.on_ball_impact(self, ball, contact_pos, rule_mgr.ball_style_type)
 
 func _on_clear_button_pressed() -> void:
 	if _is_any_panel_open(): return
@@ -658,52 +597,25 @@ func _get_balls_in_slot(slot_idx: int, slot_width: float, center_x: float, botto
 	var slot_right = slot_left + slot_width
 	var count = 0
 	for ball in active_balls:
-		if is_instance_valid(ball) and ball.position.x >= slot_left and ball.position.x <= slot_right and ball.position.y >= (bottom_y - slot_height):
-			count += 1
+		if is_instance_valid(ball) and ball.position.x >= slot_left and ball.position.x <= slot_right and ball.position.y >= (bottom_y - slot_height): count += 1
 	return count
 
+# 💡 重構重點：主腳本不再處理任何特效判斷與渲染！
 func _draw() -> void:
 	var view_size = get_viewport_rect().size; var center_x = view_size.x / 2.0; var time_sec = Time.get_ticks_msec() / 1000.0
-
-	# 1. 繪製畫面全域背景
 	draw_rect(Rect2(Vector2.ZERO, view_size), rule_mgr.current_bg_color, true)
 
-	# 2. 繪製彈珠台內部背景與外框
 	var calculated_board_bg = rule_mgr.current_bg_color.darkened(board_bg_darken_factor) if board_bg_darken_factor >= 0 else rule_mgr.current_bg_color.lightened(abs(board_bg_darken_factor))
 	var board_rect = Rect2(center_x - board_width / 2.0, board_top_margin, board_width, board_height)
-	draw_rect(board_rect, calculated_board_bg, true)
-	draw_rect(board_rect, board_border_color, false, 4.0)
+	draw_rect(board_rect, calculated_board_bg, true); draw_rect(board_rect, board_border_color, false, 4.0)
 
-	# 3. 繪製所有碰撞釘子
 	for peg in pegs_container.get_children():
 		if peg_outline_width > 0.0: draw_circle(peg.position, peg_radius + peg_outline_width, peg_outline_color)
 		draw_circle(peg.position, peg_radius, peg_color)
 
-	# 4. 委託特效管理器繪製動態軌跡與殘影 (幻影、彩虹拖尾、碰撞電弧等)
-	fx_mgr.draw_effects(self, rule_mgr.ball_style_type, ball_radius, time_sec, egg_ball_scale)
+	# --- 委派所有彈珠的視覺渲染任務！ ---
+	fx_mgr.draw_all_ball_visuals(self, active_balls, rule_mgr.ball_style_type, ball_radius, time_sec, egg_ball_scale, ball_color, fire_ball_color, lightning_ball_color, egg_textures, ball_texture_map)
 
-	# 5. 繪製場上所有活動彈珠本體
-	for ball in active_balls:
-		if is_instance_valid(ball):
-			if rule_mgr.ball_style_type in [1, 2]: # 滷蛋彈珠 & 幻影滷蛋
-				var ball_size = Vector2(ball_radius * 2.0 * egg_ball_scale, ball_radius * 2.0 * egg_ball_scale)
-				var fallback_tex: Texture2D = egg_textures[0] if egg_textures.size() > 0 else null
-				var b_tex: Texture2D = ball_texture_map.get(ball, fallback_tex)
-				draw_set_transform(ball.position, ball.rotation, Vector2.ONE)
-				if b_tex: draw_texture_rect(b_tex, Rect2(-ball_size / 2.0, ball_size), false)
-				else: draw_circle(Vector2.ZERO, ball_radius * egg_ball_scale, Color("#8D6E63"))
-				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-			elif rule_mgr.ball_style_type == 3: # 彩虹彈珠
-				var current_hue = fmod(time_sec * 0.6 + ball.get_instance_id() * 0.1, 1.0)
-				draw_circle(ball.position, ball_radius, Color.from_hsv(current_hue, 0.85, 1.0))
-			elif rule_mgr.ball_style_type == 4: # 火焰彈珠
-				draw_circle(ball.position, ball_radius, fire_ball_color)
-			elif rule_mgr.ball_style_type == 5: # 閃電彈珠
-				draw_circle(ball.position, ball_radius, lightning_ball_color)
-			else: # 普通彈珠 (0)
-				draw_circle(ball.position, ball_radius, ball_color)
-
-	# 6. 繪製獎項小格子分隔線與獎品名稱文字渲染
 	var current_count = max(1, rule_mgr.prize_list.size())
 	var slot_width = board_width / current_count
 	var bottom_y = board_top_margin + board_height
@@ -719,28 +631,20 @@ func _draw() -> void:
 
 		if rule_mgr.enable_slot_effects and balls_in_this_slot > 0:
 			text_offset_y = sin(time_sec * slot_shake_speed) * 2.0
-			if balls_in_this_slot == 1:
-				text_color = slot_color_single; draw_font_size = roundi(rule_mgr.slot_font_size * 1.15)
-			elif balls_in_this_slot == 2:
-				text_color = slot_color_multiple; draw_font_size = roundi(rule_mgr.slot_font_size * 1.25)
-			elif balls_in_this_slot == 3:
-				text_color = slot_color_triple; draw_font_size = roundi(rule_mgr.slot_font_size * 1.30)
-			else: # 4 個以上
-				text_color = slot_color_quad; draw_font_size = roundi(rule_mgr.slot_font_size * 1.35)
+			if balls_in_this_slot == 1: text_color = slot_color_single; draw_font_size = roundi(rule_mgr.slot_font_size * 1.15)
+			elif balls_in_this_slot == 2: text_color = slot_color_multiple; draw_font_size = roundi(rule_mgr.slot_font_size * 1.25)
+			elif balls_in_this_slot == 3: text_color = slot_color_triple; draw_font_size = roundi(rule_mgr.slot_font_size * 1.30)
+			else: text_color = slot_color_quad; draw_font_size = roundi(rule_mgr.slot_font_size * 1.35)
 
 		var text_pos = Vector2(slot_left + 2, bottom_y - 10 + text_offset_y)
-		
-		# 💡 獎品名稱繪製 (全時描邊支援)
 		if slot_outline_width > 0:
 			draw_string_outline(font_to_use, text_pos, prize_name, HORIZONTAL_ALIGNMENT_CENTER, slot_width - 4, draw_font_size, slot_outline_width, Color.BLACK)
 		draw_string(font_to_use, text_pos, prize_name, HORIZONTAL_ALIGNMENT_CENTER, slot_width - 4, draw_font_size, text_color)
 
-		# 💡 多顆彈珠落入時，於底邊框下方顯示獨立的 x數量 提示
 		if balls_in_this_slot > 1:
 			var count_text = "x" + str(balls_in_this_slot)
 			var count_font_size = max(12, roundi(rule_mgr.slot_font_size * 0.85))
 			var count_pos = Vector2(slot_left + 2, bottom_y + count_font_size + 8)
-			
 			if slot_outline_width > 0:
 				draw_string_outline(font_to_use, count_pos, count_text, HORIZONTAL_ALIGNMENT_CENTER, slot_width - 4, count_font_size, max(2, slot_outline_width * 0.6), Color.BLACK)
 			draw_string(font_to_use, count_pos, count_text, HORIZONTAL_ALIGNMENT_CENTER, slot_width - 4, count_font_size, text_color)
