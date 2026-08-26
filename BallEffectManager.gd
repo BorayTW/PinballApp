@@ -17,10 +17,10 @@ extends Node
 @export var fire_smoke_lifetime: float = 3.6               # 殘留火焰煙霧持續時間 (秒)
 
 @export_group("閃電彈珠特效設定")
-@export_range(0.0, 1.0) var lightning_impact_chance: float = 0.8 # 碰撞觸發電弧機率 (0.0 ~ 1.0)
+@export_range(0.0, 1.0) var lightning_impact_chance: float = 0.4 # 碰撞觸發電弧機率 (0.0 ~ 1.0)
 @export var lightning_impact_lifetime: float = 0.35              # 碰撞電弧殘留/閃爍時間 (秒)
-@export var lightning_target_radius: float = 160.0                # 電弧延伸隨機終點半徑
-@export var lightning_segments: int = 8                          # 鋸齒電弧折線段數
+@export var lightning_target_radius: float = 640.0               # 電弧延伸隨機終點半徑
+@export var lightning_segments: int = 12                         # 鋸齒電弧折線段數
 @export var lightning_color: Color = Color("#00E5FF")            # 電弧顏色 (亮青/藍白)
 @export var lightning_line_width: float = 2.5                    # 電弧線條粗細
 

@@ -25,7 +25,7 @@ extends Control
 @export var peg_outline_color: Color = Color("8b6508")  # 釘子描邊顏色
 @export var peg_outline_width: float = 0.0              # 釘子描邊粗細
 @export var ball_color: Color = Color("1e90ff")         # 彈珠顏色
-@export var fire_ball_color: Color = Color("#FF3D00")    # 火焰彈珠專用球體顏色
+@export var fire_ball_color: Color = Color("#FF3D00")   # 火焰彈珠專用球體顏色
 @export var lightning_ball_color: Color = Color("#E0F7FA") # ⚡ 閃電彈珠專用球體顏色 (冰藍白)
 
 @export_group("獎品區特效與色彩 (Slot FX)")
@@ -131,7 +131,8 @@ var launch_timer: float = 0.0
 
 func _ready() -> void:
 	is_initializing = true
-	add_child(rule_mgr); add_child(fx_mgr)
+	add_child(rule_mgr)
+	add_child(fx_mgr)
 	
 	_setup_panel_opaque_styles()
 
@@ -152,9 +153,14 @@ func _ready() -> void:
 	_apply_loaded_settings()
 	
 	remaining_ball_count = rule_mgr.total_ball_count
-	_setup_system_buttons(); _setup_version_label(); _setup_bg_color_buttons(); _refresh_preset_options()
+	_setup_system_buttons()
+	_setup_version_label()
+	_setup_bg_color_buttons()
+	_refresh_preset_options()
 
+	# 💡 選單事件：支援點選其他項目與強制點選當前項目刷新
 	preset_option.item_selected.connect(_on_preset_selected)
+	preset_option.get_popup().index_pressed.connect(_on_preset_item_clicked)
 	
 	add_button.pressed.connect(_on_add_button_pressed)
 	add_input.text_submitted.connect(_on_add_input_submitted)
@@ -179,12 +185,23 @@ func _ready() -> void:
 	ball_style_option.item_selected.connect(_on_ball_style_selected)
 	
 	_update_ui_font_size(rule_mgr.ui_font_size)
-	_refresh_item_list_ui(); _update_launch_button_ui(); _update_result_log_ui()
-	_reset_mascot_to_default(); _setup_board_boundaries(); _generate_pegs(); _generate_slots()
+	_refresh_item_list_ui()
+	_update_launch_button_ui()
+	_update_result_log_ui()
+	_reset_mascot_to_default()
+	
+	_setup_board_boundaries()
+	_generate_pegs()
+	_generate_slots()
 
 	var view_size = get_viewport_rect().size
 	ball_spawner.position = Vector2(view_size.x / 2.0, board_top_margin + 20)
 	is_initializing = false
+
+# 💡 確保點擊原本就選中的選項也能重置/回檔
+func _on_preset_item_clicked(index: int) -> void:
+	if preset_option.selected == index:
+		_on_preset_selected(index)
 
 func _on_add_input_submitted(_text: String) -> void: _on_add_button_pressed()
 func _on_ball_count_minus_pressed() -> void: _update_total_ball_count(rule_mgr.total_ball_count - 1)
@@ -257,7 +274,6 @@ func _setup_ball_style_option_ui() -> void:
 	ball_style_option.add_item("雷射彈珠")   # 6
 	ball_style_option.add_item("時空彈珠")   # 7
 
-# 💡 重構重點：將切換特效清理的工作丟回給特效總管
 func _on_ball_style_selected(idx: int) -> void:
 	rule_mgr.ball_style_type = idx
 	fx_mgr.clear_all(active_balls)
@@ -276,7 +292,8 @@ func _process(delta: float) -> void:
 			_update_action_buttons_state()
 
 	active_balls = active_balls.filter(func(b): return is_instance_valid(b))
-	fx_mgr.process_effects(delta, active_balls, rule_mgr.ball_style_type, ball_texture_map)
+	if is_instance_valid(fx_mgr) and fx_mgr.has_method("process_effects"):
+		fx_mgr.process_effects(delta, active_balls, rule_mgr.ball_style_type, ball_texture_map)
 	queue_redraw()
 
 func _update_result_log_ui() -> void:
@@ -461,19 +478,28 @@ func _on_shuffle_button_pressed() -> void:
 		rule_mgr.prize_list.shuffle(); item_list.deselect_all(); add_input.clear()
 		_refresh_item_list_ui(); _clear_all_balls(); _rebuild_slots(); rule_mgr.save_settings()
 
-# 💡 重構重點：場上清理與卸載也完全交給特效總管
 func _clear_all_balls() -> void:
-	fx_mgr.clear_all(active_balls)
+	if is_instance_valid(fx_mgr) and fx_mgr.has_method("clear_all"):
+		fx_mgr.clear_all(active_balls)
 	for ball in active_balls:
 		if is_instance_valid(ball): ball.queue_free()
 	active_balls.clear(); ball_records.clear(); current_ball_counter = 0
 	remaining_ball_count = rule_mgr.total_ball_count; can_launch = true; launch_timer = 0.0
 	_reset_mascot_to_default(); _update_launch_button_ui(); _update_result_log_ui()
 
+# 💡 隱形牆壁修復點：徹底清理所有包含 CollisionShape2D 的邊界，避免牆壁堆疊
 func _rebuild_slots() -> void:
-	for c in slots_container.get_children(): c.queue_free()
+	# 1. 清除舊的 Area2D 格子
+	for c in slots_container.get_children():
+		c.queue_free()
+		
+	# 2. 清除 Board 節點下所有舊的 CollisionShape2D (包含 SlotWall 與 外圍邊界 Wall)
 	for c in board_node.get_children():
-		if c.name.begins_with("SlotWall"): c.queue_free()
+		if c is CollisionShape2D:
+			c.queue_free()
+			
+	# 3. 重新計算建立外圍邊界與小格子
+	_setup_board_boundaries()
 	_generate_slots()
 
 func _setup_board_boundaries() -> void:
@@ -557,8 +583,8 @@ func _on_launch_button_pressed() -> void:
 		ball_texture_map[ball] = picked_tex
 		if mascot_node and mascot_node.has_method("set_mascot_texture"): mascot_node.set_mascot_texture(picked_tex)
 
-	# 💡 重構重點：將發射附屬特效任務丟給特效總管
-	fx_mgr.on_ball_spawned(ball, rule_mgr.ball_style_type, ball_radius)
+	if is_instance_valid(fx_mgr) and fx_mgr.has_method("on_ball_spawned"):
+		fx_mgr.on_ball_spawned(ball, rule_mgr.ball_style_type, ball_radius)
 
 	var spawn_pos = ball_spawner.global_position
 	spawn_pos.x += randf_range(-spawn_x_offset, spawn_x_offset)
@@ -569,17 +595,21 @@ func _on_launch_button_pressed() -> void:
 	ball_records.append({"id": current_ball_counter, "ball": ball, "prize": "滾動中..."})
 	_update_result_log_ui()
 
-# 💡 重構重點：只負責處理碰撞座標，特化特效完全交給特效總管
+# 💡 安全的具名碰撞處理函式 (解決 Lambda 閉包 freed 報錯問題)
 func _on_ball_body_entered(_body: Node, ball: RigidBody2D) -> void:
 	if is_instance_valid(ball) and ball.linear_velocity.length() > 20.0:
-		if AudioManager and AudioManager.has_method("play_peg_bounce"): AudioManager.play_peg_bounce()
+		if AudioManager and AudioManager.has_method("play_peg_bounce"):
+			AudioManager.play_peg_bounce()
 		
+		# 獲取精確碰撞點傳給特效總管
 		var contact_pos = ball.global_position
 		var state = PhysicsServer2D.body_get_direct_state(ball.get_rid())
-		if state and state.get_contact_count() > 0: contact_pos = state.get_contact_local_position(0)
+		if state and state.get_contact_count() > 0:
+			contact_pos = state.get_contact_local_position(0)
 		
 		# 無條件丟給特效經理分流
-		fx_mgr.on_ball_impact(self, ball, contact_pos, rule_mgr.ball_style_type)
+		if is_instance_valid(fx_mgr) and fx_mgr.has_method("on_ball_impact"):
+			fx_mgr.on_ball_impact(self, ball, contact_pos, rule_mgr.ball_style_type)
 
 func _on_clear_button_pressed() -> void:
 	if _is_any_panel_open(): return
@@ -601,7 +631,7 @@ func _get_balls_in_slot(slot_idx: int, slot_width: float, center_x: float, botto
 		if is_instance_valid(ball) and ball.position.x >= slot_left and ball.position.x <= slot_right and ball.position.y >= (bottom_y - slot_height): count += 1
 	return count
 
-# 💡 重構重點：主腳本不再處理任何特效判斷與渲染！
+# 💡 渲染全部委任給特效管理員
 func _draw() -> void:
 	var view_size = get_viewport_rect().size; var center_x = view_size.x / 2.0; var time_sec = Time.get_ticks_msec() / 1000.0
 	draw_rect(Rect2(Vector2.ZERO, view_size), rule_mgr.current_bg_color, true)
@@ -614,8 +644,8 @@ func _draw() -> void:
 		if peg_outline_width > 0.0: draw_circle(peg.position, peg_radius + peg_outline_width, peg_outline_color)
 		draw_circle(peg.position, peg_radius, peg_color)
 
-	# --- 委派所有彈珠的視覺渲染任務！ ---
-	fx_mgr.draw_all_ball_visuals(self, active_balls, rule_mgr.ball_style_type, ball_radius, time_sec, egg_ball_scale, ball_color, fire_ball_color, lightning_ball_color, egg_textures, ball_texture_map)
+	if is_instance_valid(fx_mgr) and fx_mgr.has_method("draw_all_ball_visuals"):
+		fx_mgr.draw_all_ball_visuals(self, active_balls, rule_mgr.ball_style_type, ball_radius, time_sec, egg_ball_scale, ball_color, fire_ball_color, lightning_ball_color, egg_textures, ball_texture_map)
 
 	var current_count = max(1, rule_mgr.prize_list.size())
 	var slot_width = board_width / current_count
