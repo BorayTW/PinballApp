@@ -8,6 +8,9 @@ extends Control
 @export var default_slot_font_size: int = 42        # 獎品區文字預設大小
 @export var item_list_font_offset: int = -4         # 獎項列表字體縮放偏移量
 
+@export_group("兩側 UI 與彈珠台邊框間距")
+@export var panel_margin_from_board: float = 20.0   # 吉祥物/紀錄框與彈珠台邊框的固定距離 (px)
+
 @export_group("畫面設定 - 字體 Bar 上下限設定")
 @export var ui_font_min: float = 12.0               # UI 字體最小值
 @export var ui_font_max: float = 40.0               # UI 字體最大值
@@ -84,6 +87,7 @@ var ball_texture_map: Dictionary = {}
 @onready var pegs_container: Node2D = $Pegs
 @onready var slots_container: Node2D = $Slots
 @onready var mascot_node: TextureRect = $UI/MascotRect
+@onready var result_panel: PanelContainer = $UI/ResultPanel
 
 @onready var launch_button: Button = $UI/BottomVBox/HBoxContainer/LaunchButton
 @onready var clear_button: Button = $UI/BottomVBox/HBoxContainer/ClearButton
@@ -158,7 +162,10 @@ func _ready() -> void:
 	_setup_bg_color_buttons()
 	_refresh_preset_options()
 
-	# 💡 選單事件：支援點選其他項目與強制點選當前項目刷新
+	# 🌐 網頁版自動隱藏「重新開始」與「退出遊戲」按鈕
+	if OS.has_feature("web"):
+		$UI/TopLeftVBox.hide()
+
 	preset_option.item_selected.connect(_on_preset_selected)
 	preset_option.get_popup().index_pressed.connect(_on_preset_item_clicked)
 	
@@ -189,16 +196,31 @@ func _ready() -> void:
 	_update_launch_button_ui()
 	_update_result_log_ui()
 	_reset_mascot_to_default()
-	
-	_setup_board_boundaries()
-	_generate_pegs()
-	_generate_slots()
 
-	var view_size = get_viewport_rect().size
-	ball_spawner.position = Vector2(view_size.x / 2.0, board_top_margin + 20)
+	# 📱 監聽視窗或手機螢幕旋轉/縮放變化
+	get_viewport().size_changed.connect(_on_viewport_size_changed)
+
+	# 📱 延遲一幀等待網頁版解析度確定，進行精準初次置中
+	await get_tree().process_frame
+	_rebuild_all_board_elements()
+
 	is_initializing = false
 
-# 💡 確保點擊原本就選中的選項也能重置/回檔
+func _on_viewport_size_changed() -> void:
+	_rebuild_all_board_elements()
+	queue_redraw()
+
+# --- 重新生成全部實體邊框、釘子與格子（確保永遠精準置中） ---
+func _rebuild_all_board_elements() -> void:
+	_clear_all_balls()
+	_setup_board_boundaries()
+	_generate_pegs()
+	_rebuild_slots()
+	
+	var view_size = get_viewport_rect().size
+	if ball_spawner:
+		ball_spawner.position = Vector2(view_size.x / 2.0, board_top_margin + 20)
+
 func _on_preset_item_clicked(index: int) -> void:
 	if preset_option.selected == index:
 		_on_preset_selected(index)
@@ -276,11 +298,12 @@ func _setup_ball_style_option_ui() -> void:
 
 func _on_ball_style_selected(idx: int) -> void:
 	rule_mgr.ball_style_type = idx
-	fx_mgr.clear_all(active_balls)
+	if is_instance_valid(fx_mgr) and fx_mgr.has_method("clear_all"):
+		fx_mgr.clear_all(active_balls)
 	ball_texture_map.clear()
 	
 	for ball in active_balls:
-		if is_instance_valid(ball):
+		if is_instance_valid(ball) and is_instance_valid(fx_mgr) and fx_mgr.has_method("on_ball_spawned"):
 			fx_mgr.on_ball_spawned(ball, rule_mgr.ball_style_type, ball_radius)
 	rule_mgr.save_settings()
 
@@ -479,6 +502,7 @@ func _on_shuffle_button_pressed() -> void:
 		_refresh_item_list_ui(); _clear_all_balls(); _rebuild_slots(); rule_mgr.save_settings()
 
 func _clear_all_balls() -> void:
+	# 💡 正確傳入 active_balls，徹底修復第 324 行報錯
 	if is_instance_valid(fx_mgr) and fx_mgr.has_method("clear_all"):
 		fx_mgr.clear_all(active_balls)
 	for ball in active_balls:
@@ -487,18 +511,14 @@ func _clear_all_balls() -> void:
 	remaining_ball_count = rule_mgr.total_ball_count; can_launch = true; launch_timer = 0.0
 	_reset_mascot_to_default(); _update_launch_button_ui(); _update_result_log_ui()
 
-# 💡 隱形牆壁修復點：徹底清理所有包含 CollisionShape2D 的邊界，避免牆壁堆疊
 func _rebuild_slots() -> void:
-	# 1. 清除舊的 Area2D 格子
 	for c in slots_container.get_children():
 		c.queue_free()
 		
-	# 2. 清除 Board 節點下所有舊的 CollisionShape2D (包含 SlotWall 與 外圍邊界 Wall)
 	for c in board_node.get_children():
 		if c is CollisionShape2D:
 			c.queue_free()
 			
-	# 3. 重新計算建立外圍邊界與小格子
 	_setup_board_boundaries()
 	_generate_slots()
 
@@ -514,6 +534,9 @@ func _create_wall_rect(pos: Vector2, rect_size: Vector2, wall_name: String = "Wa
 	col.shape = shape; col.position = pos; board_node.add_child(col)
 
 func _generate_pegs() -> void:
+	for c in pegs_container.get_children():
+		c.queue_free()
+
 	var center_x = get_viewport_rect().size.x / 2.0
 	var start_y = board_top_margin + peg_top_padding
 	var available_height = board_height - peg_top_padding - peg_bottom_padding - slot_height
@@ -595,19 +618,16 @@ func _on_launch_button_pressed() -> void:
 	ball_records.append({"id": current_ball_counter, "ball": ball, "prize": "滾動中..."})
 	_update_result_log_ui()
 
-# 💡 安全的具名碰撞處理函式 (解決 Lambda 閉包 freed 報錯問題)
 func _on_ball_body_entered(_body: Node, ball: RigidBody2D) -> void:
 	if is_instance_valid(ball) and ball.linear_velocity.length() > 20.0:
 		if AudioManager and AudioManager.has_method("play_peg_bounce"):
 			AudioManager.play_peg_bounce()
 		
-		# 獲取精確碰撞點傳給特效總管
 		var contact_pos = ball.global_position
 		var state = PhysicsServer2D.body_get_direct_state(ball.get_rid())
 		if state and state.get_contact_count() > 0:
 			contact_pos = state.get_contact_local_position(0)
 		
-		# 無條件丟給特效經理分流
 		if is_instance_valid(fx_mgr) and fx_mgr.has_method("on_ball_impact"):
 			fx_mgr.on_ball_impact(self, ball, contact_pos, rule_mgr.ball_style_type)
 
@@ -631,7 +651,6 @@ func _get_balls_in_slot(slot_idx: int, slot_width: float, center_x: float, botto
 		if is_instance_valid(ball) and ball.position.x >= slot_left and ball.position.x <= slot_right and ball.position.y >= (bottom_y - slot_height): count += 1
 	return count
 
-# 💡 渲染全部委任給特效管理員
 func _draw() -> void:
 	var view_size = get_viewport_rect().size; var center_x = view_size.x / 2.0; var time_sec = Time.get_ticks_msec() / 1000.0
 	draw_rect(Rect2(Vector2.ZERO, view_size), rule_mgr.current_bg_color, true)
